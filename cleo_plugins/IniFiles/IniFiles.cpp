@@ -18,6 +18,18 @@ static void fixIniFilepath(char* buff)
 
 #define OPCODE_READ_PARAM_FILEPATH_INI(_varName) OPCODE_READ_PARAM_FILEPATH(_varName); fixIniFilepath(_buff_##_varName)
 
+#define OPCODE_READ_PARAM_STRING_OR_ZERO(_varName) const char* ##_varName; \
+if (IsLegacyScript(thread) && IsImmInteger(thread->PeekDataType()) && CLEO_PeekIntOpcodeParam(thread) == 0) \
+{ \
+	CLEO_SkipOpcodeParams(thread, 1); \
+	##_varName = nullptr; \
+} \
+else \
+{ \
+	char _buff_##_varName[MAX_STR_LEN + 1]; \
+	##_varName = _readParamText(thread, _buff_##_varName, MAX_STR_LEN + 1); \
+	if (!_paramWasString()) { return OpcodeResult::OR_INTERRUPT; } \
+};
 
 class IniFiles
 {
@@ -34,6 +46,8 @@ public:
 			CLEO_RegisterOpcode(0x0AF3, Script_InifileWriteFloat);
 			CLEO_RegisterOpcode(0x0AF4, Script_InifileReadString);
 			CLEO_RegisterOpcode(0x0AF5, Script_InifileWriteString);
+			CLEO_RegisterOpcode(0x2800, Script_InifileDeleteSection);
+			CLEO_RegisterOpcode(0x2801, Script_InifileDeleteKey);
 		}
 		else
 		{
@@ -104,17 +118,12 @@ public:
 		auto value = OPCODE_READ_PARAM_INT();
 		OPCODE_READ_PARAM_FILEPATH_INI(path);
 		OPCODE_READ_PARAM_STRING(section);
-		OPCODE_READ_PARAM_STRING(key);
+		OPCODE_READ_PARAM_STRING_OR_ZERO(key);	// 0 deletes the whole section
 
 		char strValue[32];
 		_itoa(value, strValue, 10);
 		auto result = WritePrivateProfileString(section, key, strValue, path);
 		
-		if (GetLastError() == ERROR_FILE_NOT_FOUND) // path points directory
-		{
-			result = false;
-		}
-
 		OPCODE_CONDITION_RESULT(result);
 		return OR_CONTINUE;
 	}
@@ -169,17 +178,12 @@ public:
 		auto value = OPCODE_READ_PARAM_FLOAT();
 		OPCODE_READ_PARAM_FILEPATH_INI(path);
 		OPCODE_READ_PARAM_STRING(section);
-		OPCODE_READ_PARAM_STRING(key);
+		OPCODE_READ_PARAM_STRING_OR_ZERO(key); // 0 deletes the whole section
 
 		char strValue[32];
 		sprintf(strValue, "%g", value);
 		auto result = WritePrivateProfileString(section, key, strValue, path);
 		
-		if (GetLastError() == ERROR_FILE_NOT_FOUND) // path points directory
-		{
-			result = false;
-		}
-
 		OPCODE_CONDITION_RESULT(result);
 		return OR_CONTINUE;
 	}
@@ -214,17 +218,43 @@ public:
 		0AF5=4,write_string %1s% to_ini_file %2s% section %3s% key %4s%
 		****************************************************************/
 	{
-		OPCODE_READ_PARAM_STRING(strValue);
+		OPCODE_READ_PARAM_STRING_OR_ZERO(strValue); // 0 deletes the key
+		OPCODE_READ_PARAM_FILEPATH_INI(path);
+		OPCODE_READ_PARAM_STRING(section);
+		OPCODE_READ_PARAM_STRING_OR_ZERO(key);		// 0 deletes the whole section
+
+		auto result = WritePrivateProfileString(section, key, strValue, path);
+
+		OPCODE_CONDITION_RESULT(result);
+		return OR_CONTINUE;
+	}
+
+	static OpcodeResult WINAPI Script_InifileDeleteSection(CScriptThread* thread)
+		/****************************************************************
+		Opcode Format
+		2800=2,delete_section_from_ini_file %1s% section %2s%
+		****************************************************************/
+	{
+		OPCODE_READ_PARAM_FILEPATH_INI(path);
+		OPCODE_READ_PARAM_STRING(section);
+
+		auto result = WritePrivateProfileString(section, nullptr, nullptr, path);
+
+		OPCODE_CONDITION_RESULT(result);
+		return OR_CONTINUE;
+	}
+
+	static OpcodeResult WINAPI Script_InifileDeleteKey(CScriptThread* thread)
+		/****************************************************************
+		Opcode Format
+		2801=3,delete_key_from_ini_file %1s% section %2s%
+		****************************************************************/
+	{
 		OPCODE_READ_PARAM_FILEPATH_INI(path);
 		OPCODE_READ_PARAM_STRING(section);
 		OPCODE_READ_PARAM_STRING(key);
 
-		auto result = WritePrivateProfileString(section, key, strValue, path);
-
-		if (GetLastError() == ERROR_FILE_NOT_FOUND) // path points directory
-		{
-			result = false;
-		}
+		auto result = WritePrivateProfileString(section, key, nullptr, path);
 
 		OPCODE_CONDITION_RESULT(result);
 		return OR_CONTINUE;
