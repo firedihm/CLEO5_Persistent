@@ -19,6 +19,14 @@ void CPluginSystem::LoadPlugins()
     std::vector<std::string> paths;
     std::set<std::string> skippedPaths;
 
+    // get blacklist from config
+    auto blacklistStr = std::string(512, '\0');
+    GetPrivateProfileString("General", "PluginBlacklist", "", blacklistStr.data(), blacklistStr.size(), Filepath_Config.c_str());
+    blacklistStr.resize(strlen(blacklistStr.data()));
+    StringToLower(blacklistStr);
+    std::vector<std::string> blacklist;
+    StringSplit(blacklistStr, "\t ,", blacklist);
+
     // load plugins from main CLEO directory
     auto ScanPluginsDir = [&](std::string path, const std::string prefix, const std::string extension)
     {
@@ -37,22 +45,32 @@ void CPluginSystem::LoadPlugins()
             name = name.substr(prefix.length()); // cut off prefix
             name.resize(name.length() - extension.length()); // cut off extension
 
+            // on blacklist?
+            auto blName = FS::path(files.strings[i]).filename().string();
+            StringToLower(blName);
+            if (std::find(blacklist.begin(), blacklist.end(), blName) != blacklist.end())
+            {
+                skippedPaths.emplace(files.strings[i]);
+                LOG_WARNING(0, " %s - skipped, blacklisted in config.ini", files.strings[i]);
+                continue;
+            }
+
             // case insensitive search in already listed plugin names
             auto found = std::find_if(names.begin(), names.end(), [&](const std::string& s) {
                 return _stricmp(s.c_str(), name.c_str()) == 0;
             });
 
-            if (found == names.end())
-            {
-                names.insert(name);
-                paths.emplace_back(files.strings[i]);
-                TRACE(" %s", files.strings[i]);
-            }
-            else
+            // duplicated?
+            if (found != names.end())
             {
                 skippedPaths.emplace(files.strings[i]);
                 LOG_WARNING(0, " %s - skipped, duplicate of '%s' plugin", files.strings[i], name.c_str());
+                continue;
             }
+
+            names.insert(name);
+            paths.emplace_back(files.strings[i]);
+            TRACE(" %s", files.strings[i]);
         }
 
         CLEO_StringListFree(files);
