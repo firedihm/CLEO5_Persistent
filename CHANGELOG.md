@@ -1,5 +1,6 @@
 ## 5.0.1
 - cleo.log file moved back to the game root (as in CLEO4)
+- Restored behavior of '.\\' prefix for scripts in legacy compat mode
 - fixed **0AB9 ([get_audio_stream_state](https://library.sannybuilder.com/#/sa/audio/0AB9))** not always returning Stopped, despite playback ended
 - fixed **2507 ([get_audio_stream_progress](https://library.sannybuilder.com/#/sa/audio/2507))** sometimes returning values smaller than 1.0, despite playback ended
 - fixed progress set with **2508 ([set_audio_stream_progress](https://library.sannybuilder.com/#/sa/audio/2508))** being ignored by stopped streams
