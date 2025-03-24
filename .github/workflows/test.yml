@@ -21,6 +21,9 @@ jobs:
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v2
 
+      - name: Tag Custom build with current commit SHA
+        run: node.exe .github/workflows/tag-custom-build.js
+
       - name: Core - Build
         shell: cmd
         run: |
