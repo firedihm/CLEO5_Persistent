@@ -94,7 +94,7 @@ float CAudioStream::GetProgress() const
     return (float)(pos / total);
 }
 
-CAudioStream::eStreamState CAudioStream::GetState() const
+CAudioStream::StreamState CAudioStream::GetState() const
 {
     return (state == PlayingInactive) ? Playing : state;
 }
@@ -186,7 +186,7 @@ void CAudioStream::UpdateVolume()
     switch(type)
     {
         case SoundEffect: masterVolume = CSoundSystem::masterVolumeSfx; break;
-        case Music: masterVolume = (CSoundSystem::masterSpeed == 1.0f) ? CSoundSystem::masterVolumeMusic : 0.0f; break;
+        case Music: masterVolume = CSoundSystem::masterVolumeMusic; break;
         case UserInterface: masterVolume = CSoundSystem::masterVolumeSfx; break;
     }
 
@@ -269,7 +269,7 @@ void CAudioStream::Set3dSourceSize(float radius)
     // not applicable for 2d audio
 }
 
-void CAudioStream::Link(CPlaceable* placable)
+void CAudioStream::SetHost(CEntity* placable, const CVector& offset)
 {
     // not applicable for 2d audio
 }

@@ -27,18 +27,15 @@ C3DAudioStream::C3DAudioStream(const char* filepath) : CAudioStream()
 
     BASS_ChannelGetAttribute(streamInternal, BASS_ATTRIB_FREQ, &rate);
     BASS_ChannelSet3DAttributes(streamInternal, BASS_3DMODE_NORMAL, 3.0f, 1E+12f, -1, -1, -1.0f);
+    BASS_ChannelSetAttribute(streamInternal, BASS_ATTRIB_VOL, 0.0f); // muted until processed
     ok = true;
 }
 
 void C3DAudioStream::Set3dPosition(const CVector& pos)
 {
-    link = nullptr;
-    position.x = pos.y;
-    position.y = pos.z;
-    position.z = pos.x;
-    BASS_3DVECTOR vel = { 0.0f, 0.0f, 0.0f };
-
-    BASS_ChannelSet3DPosition(streamInternal, &position, nullptr, &vel);
+    host = nullptr;
+    hostType = ENTITY_TYPE_NOTHING;
+    offset = pos;
 }
 
 void C3DAudioStream::Set3dSourceSize(float radius)
@@ -46,40 +43,75 @@ void C3DAudioStream::Set3dSourceSize(float radius)
     BASS_ChannelSet3DAttributes(streamInternal, BASS_3DMODE_NORMAL, radius, 1E+12f, -1, -1, -1.0f);
 }
 
-void C3DAudioStream::Link(CPlaceable* placable)
+void C3DAudioStream::SetHost(CEntity* host, const CVector& offset)
 {
-    link = placable;
+    if (host != nullptr)
+    {
+        this->host = host;
+        hostType = (eEntityType)host->m_nType;
+    }
+    else
+    {
+        this->host = nullptr;
+        hostType = ENTITY_TYPE_NOTHING;
+    }
+
+    this->offset = offset;
 }
 
 void C3DAudioStream::Process()
 {
     CAudioStream::Process();
-
-    if (state != Playing) return; // done
-
     UpdatePosition();
 }
 
 void C3DAudioStream::UpdatePosition()
 {
-    if (link) // attached to entity
+    auto prevPos = position;
+
+    if (host != nullptr)
     {
-        auto prevPos = position;
-        CVector* pVec = link->m_matrix ? &link->m_matrix->pos : &link->m_placement.m_vPosn;
-        position = BASS_3DVECTOR(pVec->y, pVec->z, pVec->x);
+        if (hostType == ENTITY_TYPE_NOTHING) return;
 
+        // host despawned?
+        bool hostValid = false;
+        switch (hostType)
+        {
+            case ENTITY_TYPE_OBJECT:
+                hostValid = CPools::ms_pObjectPool->IsObjectValid((CObject*)host);
+                break;
 
-        // calculate velocity
-        BASS_3DVECTOR vel = position;
-        vel.x -= prevPos.x;
-        vel.y -= prevPos.y;
-        vel.z -= prevPos.z;
-        auto timeDelta = 0.001f * (CTimer::m_snTimeInMillisecondsNonClipped - CTimer::m_snPreviousTimeInMillisecondsNonClipped);
-        vel.x *= timeDelta;
-        vel.y *= timeDelta;
-        vel.z *= timeDelta;
+            case ENTITY_TYPE_PED:
+                hostValid = CPools::ms_pPedPool->IsObjectValid((CPed*)host);
+                break;
 
-        BASS_ChannelSet3DPosition(streamInternal, &position, nullptr, &vel);
+            case ENTITY_TYPE_VEHICLE:
+                hostValid = CPools::ms_pVehiclePool->IsObjectValid((CVehicle*)host);
+                break;
+        }
+        if (!hostValid)
+        {
+            hostType = ENTITY_TYPE_NOTHING;
+            Stop();
+            return;
+        }
+
+        RwV3dTransformPoint((RwV3d*)&position, (RwV3d*)&offset, (RwMatrix*)host->GetMatrix());
+    }
+    else // world offset
+    {
+        position = offset;
+    }
+
+    if (prevPos.Magnitude() > 0.0f) // not equal to 0,0,0
+    {
+        CVector velocity = position - prevPos;
+        velocity /= CSoundSystem::timeStep;
+        BASS_ChannelSet3DPosition(streamInternal, &toBass(position), nullptr, &toBass(velocity));
+    }
+    else
+    {
+        BASS_ChannelSetAttribute(streamInternal, BASS_ATTRIB_VOL, 0.0f); // muted until next update
     }
 }
 

@@ -9,7 +9,7 @@ namespace CLEO
     class CAudioStream
     {
     public:
-        enum eStreamState
+        enum StreamState
         {
             Stopped = -1,
             PlayingInactive, // internal: playing, but not processed yet or the sound system is silenced right now
@@ -23,7 +23,7 @@ namespace CLEO
         bool IsOk() const;
         HSTREAM GetInternal(); // get BASS stream
 
-        eStreamState GetState() const;
+        StreamState GetState() const;
         void Play();
         void Pause(bool changeState = true);
         void Stop();
@@ -49,13 +49,13 @@ namespace CLEO
         // 3d
         virtual void Set3dPosition(const CVector& pos);
         virtual void Set3dSourceSize(float radius);
-        virtual void Link(CPlaceable* placable = nullptr);
+        virtual void SetHost(CEntity* placable, const CVector& offset);
 
         virtual void Process();
 
     protected:
         HSTREAM streamInternal = 0;
-        eStreamState state = Paused;
+        StreamState state = Paused;
         eStreamType type = eStreamType::SoundEffect;
         bool ok = false;
         float rate = 44100.0f; // file's sampling rate

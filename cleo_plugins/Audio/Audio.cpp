@@ -69,7 +69,7 @@ public:
 
         // register event callbacks
         CLEO_RegisterCallback(eCallbackId::GameBegin, OnGameBegin);
-        CLEO_RegisterCallback(eCallbackId::GameProcess, OnGameProcess);
+        CLEO_RegisterCallback(eCallbackId::AfterGameProcess, OnAfterGameProcess);
         CLEO_RegisterCallback(eCallbackId::GameEnd, OnGameEnd);
         CLEO_RegisterCallback(eCallbackId::DrawingFinished, OnDrawingFinished);
         CLEO_RegisterCallback(eCallbackId::MainWindowFocus, OnMainWindowFocus);
@@ -78,7 +78,7 @@ public:
     ~Audio()
     {
         CLEO_UnregisterCallback(eCallbackId::GameBegin, OnGameBegin);
-        CLEO_UnregisterCallback(eCallbackId::GameProcess, OnGameProcess);
+        CLEO_UnregisterCallback(eCallbackId::AfterGameProcess, OnAfterGameProcess);
         CLEO_UnregisterCallback(eCallbackId::GameEnd, OnGameEnd);
         CLEO_UnregisterCallback(eCallbackId::DrawingFinished, OnDrawingFinished);
         CLEO_UnregisterCallback(eCallbackId::MainWindowFocus, OnMainWindowFocus);
@@ -89,7 +89,7 @@ public:
         soundSystem.Init();
     }
 
-    static void __stdcall OnGameProcess()
+    static void __stdcall OnAfterGameProcess()
     {
         soundSystem.Process();
     }
@@ -183,7 +183,7 @@ public:
     {
         auto stream = (CAudioStream*)OPCODE_READ_PARAM_UINT(); VALIDATE_STREAM();
 
-        auto state = CAudioStream::eStreamState::Stopped;
+        auto state = CAudioStream::StreamState::Stopped;
         if (stream) state = stream->GetState();
 
         OPCODE_WRITE_PARAM_INT(state);
@@ -267,7 +267,7 @@ public:
         if (stream)
         {
             auto object = CPools::GetObject(handle);
-            stream->Link(object);
+            stream->SetHost(object, { 0.0f, 0.0f, 0.0f });
         }
 
         return OR_CONTINUE;
@@ -282,7 +282,7 @@ public:
         if (stream)
         {
             auto ped = CPools::GetPed(handle);
-            stream->Link(ped);
+            stream->SetHost(ped, { 0.0f, 0.0f, 0.0f });
         }
 
         return OR_CONTINUE;
@@ -297,7 +297,7 @@ public:
         if (stream)
         {
             auto vehicle = CPools::GetVehicle(handle);
-            stream->Link(vehicle);
+            stream->SetHost(vehicle, { 0.0f, 0.0f, 0.0f });
          }
 
         return OR_CONTINUE;
@@ -308,10 +308,10 @@ public:
     {
         auto stream = (CAudioStream*)OPCODE_READ_PARAM_UINT(); VALIDATE_STREAM();
 
-        auto state = CAudioStream::eStreamState::Stopped;
+        auto state = CAudioStream::StreamState::Stopped;
         if (stream) state = stream->GetState();
 
-        OPCODE_CONDITION_RESULT(state == CAudioStream::eStreamState::Playing);
+        OPCODE_CONDITION_RESULT(state == CAudioStream::StreamState::Playing);
         return OR_CONTINUE;
     }
 
