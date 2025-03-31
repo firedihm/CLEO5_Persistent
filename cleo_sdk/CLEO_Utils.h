@@ -252,13 +252,21 @@ namespace CLEO
     }
 
     // strip parent prefix from filepath if present
+    // 1. FilepathRemoveParent("C:\game\cleo\1.cs", "C:\game") => cleo\1.cs
+    // 2. FilepathRemoveParent("C:cleo\1.cs", "C:") => cleo\1.cs
     static void FilepathRemoveParent(std::string& path, const std::string_view base)
     {
         if (path.length() < base.length()) return; // can not hold that prefix
         if (!StringStartsWith(path, base, false)) return;
-        if (path.length() > base.length() && path[base.length()] != '\\') return; // just similar base
+        if (path.length() > base.length() && path[base.length()] != '\\' && path[base.length()-1] != ':') return; // just similar base
 
-        path.replace(0, base.length() + 1, ""); // remove path separator too if present
+        auto to = base.length();
+        if (path[to] == '\\')
+        {
+            // remove path separator too if present
+            to += 1;
+        }
+        path.replace(0, to, ""); 
     }
 
     // get path without last file/directory element
