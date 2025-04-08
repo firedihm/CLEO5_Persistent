@@ -1,7 +1,8 @@
 #include "stdafx.h"
 #include "CleoBase.h"
-#include "CFileMgr.h"
-#include "CGame.h"
+#include "crc32.h"
+#include <CGame.h>
+#include <CMenuManager.h>
 #include <CTheScripts.h>
 
 #include <sstream>

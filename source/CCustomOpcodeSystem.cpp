@@ -3,9 +3,7 @@
 #include "CGameVersionManager.h"
 #include "CCustomOpcodeSystem.h"
 #include "ScmFunction.h"
-#include "CCheat.h"
-#include "CModelInfo.h"
-#include "CVehicle.h"
+#include <CCheat.h>
 
 #include <sstream>
 #include <forward_list>
@@ -1229,10 +1227,6 @@ namespace CLEO
 extern "C"
 {
 	using namespace CLEO;
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4550)
-#endif
 
 	BOOL WINAPI CLEO_RegisterOpcode(WORD opcode, CustomOpcodeHandler callback)
 	{
@@ -1250,10 +1244,6 @@ extern "C"
 
 		return CCustomOpcodeSystem::RegisterOpcode(opcode, callback);
 	}
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 	DWORD WINAPI CLEO_GetIntOpcodeParam(CLEO::CRunningScript* thread)
 	{

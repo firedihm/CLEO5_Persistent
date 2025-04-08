@@ -244,7 +244,7 @@ public:
     // ---------------------------------------------- opcodes -------------------------------------------------
 
     // 00C3=0, debug_on
-    static OpcodeResult WINAPI Opcode_DebugOn(CScriptThread* thread)
+    static OpcodeResult __stdcall Opcode_DebugOn(CScriptThread* thread)
     {
         CLEO_SetScriptDebugMode(thread, true);
 
@@ -252,7 +252,7 @@ public:
     }
 
     // 00C4=0, debug_off
-    static OpcodeResult WINAPI Opcode_DebugOff(CScriptThread* thread)
+    static OpcodeResult __stdcall Opcode_DebugOff(CScriptThread* thread)
     {
         CLEO_SetScriptDebugMode(thread, false);
 
@@ -260,7 +260,7 @@ public:
     }
 
     // 2100=-1, breakpoint ...
-    static OpcodeResult WINAPI Opcode_Breakpoint(CScriptThread* thread)
+    static OpcodeResult __stdcall Opcode_Breakpoint(CScriptThread* thread)
     {
         if (!CLEO_GetScriptDebugMode(thread))
         {
@@ -308,7 +308,7 @@ public:
     }
 
     // 2101=-1, trace %1s% ...
-    static OpcodeResult WINAPI Opcode_Trace(CScriptThread* thread)
+    static OpcodeResult __stdcall Opcode_Trace(CScriptThread* thread)
     {
         if (!CLEO_GetScriptDebugMode(thread))
         {
@@ -324,7 +324,7 @@ public:
     }
 
     // 2102=-1, log_to_file %1s% timestamp %2d% text %3s% ...
-    static OpcodeResult WINAPI Opcode_LogToFile(CScriptThread* thread)
+    static OpcodeResult __stdcall Opcode_LogToFile(CScriptThread* thread)
     {
         auto filestr = CLEO_ReadStringOpcodeParam(thread);
 
@@ -377,7 +377,7 @@ public:
     }
 
     // 0662=1, printstring %1s%
-    static OpcodeResult WINAPI Opcode_PrintString(CScriptThread* thread)
+    static OpcodeResult __stdcall Opcode_PrintString(CScriptThread* thread)
     {
         if (!CLEO_GetScriptDebugMode(thread))
         {
@@ -393,7 +393,7 @@ public:
     }
 
     // 0663=1, printint %1s% %2d%
-    static OpcodeResult WINAPI Opcode_PrintInt(CScriptThread* thread)
+    static OpcodeResult __stdcall Opcode_PrintInt(CScriptThread* thread)
     {
         if (!CLEO_GetScriptDebugMode(thread))
         {
@@ -412,7 +412,7 @@ public:
     }
 
     // 0664=1, printfloat %1s% %2f%
-    static OpcodeResult WINAPI Opcode_PrintFloat(CScriptThread* thread)
+    static OpcodeResult __stdcall Opcode_PrintFloat(CScriptThread* thread)
     {
         if (!CLEO_GetScriptDebugMode(thread))
         {
