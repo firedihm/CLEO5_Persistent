@@ -453,7 +453,6 @@ static_assert(sizeof(CRunningScript) == 0xE0, "Invalid size of CRunningScript!")
 #endif
 
 typedef OpcodeResult (CALLBACK* _pOpcodeHandler)(CRunningScript*);
-typedef void(*FuncScriptDeleteDelegateT) (CRunningScript*);
 
 #ifdef __cplusplus
 extern "C" {
@@ -468,6 +467,11 @@ BOOL WINAPI CLEO_RegisterCommand(const char* commandName, _pOpcodeHandler callba
 
 void WINAPI CLEO_RegisterCallback(eCallbackId id, void* func);
 void WINAPI CLEO_UnregisterCallback(eCallbackId id, void* func);
+
+// scripts deletion callback
+typedef void(*FuncScriptDeleteDelegateT) (CRunningScript* script);
+void WINAPI CLEO_AddScriptDeleteDelegate(FuncScriptDeleteDelegateT func);
+void WINAPI CLEO_RemoveScriptDeleteDelegate(FuncScriptDeleteDelegateT func);
 
 
 // script utils
@@ -490,6 +494,7 @@ DWORD WINAPI CLEO_GetVarArgCount(CRunningScript* thread); // peek remaining var-
 
 extern SCRIPT_VAR* opcodeParams;
 extern SCRIPT_VAR* missionLocals;
+extern CRunningScript* staticThreads;
 
 SCRIPT_VAR* WINAPI CLEO_GetOpcodeParamsArray(); // get pointer to 'SCRIPT_VAR[32] opcodeParams'. Used by Retrieve/Record opcode params functions
 BYTE WINAPI CLEO_GetParamsHandledCount(); // number of already read/written opcode parameters since current opcode handler was called
@@ -522,14 +527,10 @@ void WINAPI CLEO_WriteStringOpcodeParam(CRunningScript* thread, const char* str)
 BOOL WINAPI CLEO_GetScriptDebugMode(const CRunningScript* thread); // debug mode features enabled for this script?
 void WINAPI CLEO_SetScriptDebugMode(CRunningScript* thread, BOOL enabled);
 
-CRunningScript* WINAPI CLEO_CreateCustomScript(CRunningScript* fromThread, const char* script_name, int label);
+CRunningScript* WINAPI CLEO_CreateCustomScript(CRunningScript* fromThread, const char* filePath, int label);
 CRunningScript* WINAPI CLEO_GetLastCreatedCustomScript();
 CRunningScript* WINAPI CLEO_GetScriptByName(const char* threadName, BOOL standardScripts, BOOL customScripts, DWORD resultIndex = 0); // can be called multiple times to find more scripts named threadName. resultIndex should be incremented until the method returns nullptr
 CRunningScript* WINAPI CLEO_GetScriptByFilename(const char* path, DWORD resultIndex = 0); // can be absolute, partial path or just filename
-
-// scripts deletion callback
-void WINAPI CLEO_AddScriptDeleteDelegate(FuncScriptDeleteDelegateT func);
-void WINAPI CLEO_RemoveScriptDeleteDelegate(FuncScriptDeleteDelegateT func);
 
 DWORD WINAPI CLEO_GetScriptTextureById(CRunningScript* thread, int id); // ret RwTexture *
 

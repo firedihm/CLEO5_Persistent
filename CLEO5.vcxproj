@@ -44,6 +44,7 @@
     <ClCompile Include="source\crc32.cpp" />
     <ClCompile Include="source\CScriptEngine.cpp" />
     <ClCompile Include="source\dllmain.cpp" />
+    <ClCompile Include="source\exports.cpp" />
     <ClCompile Include="source\OpcodeInfoDatabase.cpp" />
     <ClCompile Include="source\ScmFunction.cpp" />
     <ClCompile Include="source\stdafx.cpp">
@@ -93,6 +94,7 @@
     <ClInclude Include="source\OpcodeInfoDatabase.h" />
     <ClInclude Include="source\resource.h" />
     <ClInclude Include="source\ScmFunction.h" />
+    <ClInclude Include="source\ScriptDelegate.h" />
     <ClInclude Include="source\Singleton.h" />
     <ClInclude Include="source\stdafx.h" />
     <ClInclude Include="third-party\simdjson\simdjson.h" />

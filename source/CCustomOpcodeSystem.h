@@ -1,10 +1,13 @@
 #pragma once
 #include "CCodeInjector.h"
 #include "CDebug.h"
+#include "ScriptDelegate.h"
 
 namespace CLEO
 {
     typedef OpcodeResult(__stdcall * CustomOpcodeHandler)(CRunningScript*);
+
+    void ThreadJump(CRunningScript* thread, int off);
 
     class CCustomOpcodeSystem : public VInjectible
     {
@@ -22,20 +25,16 @@ namespace CLEO
         static std::string lastErrorMsg;
         static WORD prevOpcode; // previous
         static BYTE handledParamCount; // read/writen since current opcode handling started
-        
+
+        ScriptDeleteDelegate scriptDeleteDelegate;
+
         void FinalizeScriptObjects();
 
         CCustomOpcodeSystem() = default;
         CCustomOpcodeSystem(const CCustomOpcodeSystem&) = delete; // no copying
         virtual void Inject(CCodeInjector& inj);
         void Init();
-        ~CCustomOpcodeSystem()
-        {
-            TRACE(""); // separator
-            TRACE("Custom Opcode System finalized:");
-            TRACE(" Last opcode executed: %04X", lastOpcode);
-            TRACE(" Previous opcode executed: %04X", prevOpcode);
-        }
+        ~CCustomOpcodeSystem();
 
         static bool RegisterOpcode(WORD opcode, CustomOpcodeHandler callback);
 
