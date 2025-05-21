@@ -152,12 +152,18 @@ jobs:
           filename: SA.CLEO_SDK-nightly.zip
           exclusions: "*.pdb *.exp"
 
+      - id: get_time
+        uses: Kaven-Universe/github-action-current-date-time@v1
+        with:
+          format: "YYYY-MM-DD"
+
       - name: Upload Release
         uses: ncipollo/release-action@main
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: "Nightly Build"
+          name: Nightly Build-${{ steps.get_time.outputs.time }}
           tag: "nightly"
+          body: "[CHANGELOG](https://github.com/cleolibrary/CLEO5/compare/nightly...master)"
           prerelease: true
           artifacts: "SA.CLEO*.zip"
           allowUpdates: true
