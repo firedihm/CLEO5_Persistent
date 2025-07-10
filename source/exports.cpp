@@ -92,6 +92,28 @@ extern "C"
         strncpy_s(buf, bufSize, msg.c_str(), bufSize);
     }
 
+    DWORD WINAPI CLEO_GetScriptBaseRelativeOffset(const CRunningScript* script, const BYTE* codePos)
+    {
+        auto base = (BYTE*)script->BaseIP;
+        if (base == 0) base = CleoInstance.ScriptEngine.scmBlock;
+
+        if (script->IsMission() && !script->IsCustom())
+        {
+            if (codePos >= CleoInstance.ScriptEngine.missionBlock)
+            {
+                // we are in mission code buffer
+                // native missions are loaded from script file into mission block area
+                codePos += ((DWORD*)CTheScripts::MultiScriptArray)[CleoInstance.ScriptEngine.missionIndex]; // start offset of this mission within source script file
+            }
+            else
+            {
+                base = CleoInstance.ScriptEngine.scmBlock; // seems that mission uses main scm code
+            }
+        }
+
+        return codePos - base;
+    }
+
     eCLEO_Version WINAPI CLEO_GetScriptVersion(const CRunningScript* thread)
     {
         if (thread->IsCustom())
@@ -159,6 +181,11 @@ extern "C"
     SCRIPT_VAR* opcodeParams;
     SCRIPT_VAR* missionLocals;
     CRunningScript* staticThreads;
+
+    BYTE* WINAPI CLEO_GetScmMainData()
+    {
+        return CleoInstance.ScriptEngine.scmBlock;
+    }
 
     SCRIPT_VAR* WINAPI CLEO_GetOpcodeParamsArray()
     {

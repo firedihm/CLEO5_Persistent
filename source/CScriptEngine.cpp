@@ -201,13 +201,6 @@ namespace CLEO
 
     void(__cdecl * InitScm)();
 
-    BYTE *scmBlock;
-    BYTE *missionBlock;
-    int MissionIndex;
-    BOOL *onMissionFlag;
-
-    CRunningScript **inactiveThreadQueue, **activeThreadQueue;
-
     void OnLoadScmData(void)
     {
         TRACE("Loading scripts save data...");
@@ -345,9 +338,9 @@ namespace CLEO
 
     void CScriptEngine::Inject(CCodeInjector& inj)
     {
-        TRACE("Injecting ScriptEngine...");
+        TRACE("Injecting ScriptEngine: Phase 1");
         CGameVersionManager& gvm = CleoInstance.VersionManager;
-
+            
         // Global Events crashfix
         //inj.MemoryWrite(0xA9AF6C, 0, 4);
 
@@ -363,14 +356,11 @@ namespace CLEO
         GetScriptParams = reinterpret_cast<void(__thiscall*)(CRunningScript*, int)>(_GetScriptParams);
         TransmitScriptParams = reinterpret_cast<void(__thiscall*)(CRunningScript*, CRunningScript*)>(_TransmitScriptParams);
         SetScriptParams = reinterpret_cast<void(__thiscall*)(CRunningScript*, int)>(_SetScriptParams);
-        GetScriptParamPointer1 = reinterpret_cast<SCRIPT_VAR * (__thiscall*)(CRunningScript*)>(_GetScriptParamPointer1);
-        GetScriptParamPointer2 = reinterpret_cast<SCRIPT_VAR * (__thiscall*)(CRunningScript*, int)>(_GetScriptParamPointer2);
+        GetScriptParamPointer1 = reinterpret_cast<SCRIPT_VAR* (__thiscall*)(CRunningScript*)>(_GetScriptParamPointer1);
+        GetScriptParamPointer2 = reinterpret_cast<SCRIPT_VAR* (__thiscall*)(CRunningScript*, int)>(_GetScriptParamPointer2);
 
         opcodeParams = gvm.TranslateMemoryAddress(MA_OPCODE_PARAMS);
         missionLocals = gvm.TranslateMemoryAddress(MA_MISSION_LOCALS);
-        scmBlock = gvm.TranslateMemoryAddress(MA_SCM_BLOCK);
-        missionBlock = gvm.TranslateMemoryAddress(MA_MISSION_BLOCK);
-        onMissionFlag = gvm.TranslateMemoryAddress(MA_ON_MISSION_FLAG);
 
         // Protect script dependencies
         inj.ReplaceFunction(HOOK_ProcessScript, gvm.TranslateMemoryAddress(MA_CALL_PROCESS_SCRIPT), &ProcessScript_Orig);
@@ -384,6 +374,16 @@ namespace CLEO
 
         inj.ReplaceFunction(OnLoadScmData, gvm.TranslateMemoryAddress(MA_CALL_LOAD_SCM_DATA));
         inj.ReplaceFunction(OnSaveScmData, gvm.TranslateMemoryAddress(MA_CALL_SAVE_SCM_DATA));
+    }
+
+    void CScriptEngine::InjectLate(CCodeInjector& inj)
+    {
+        TRACE("Injecting ScriptEngine: Phase 2");
+        CGameVersionManager& gvm = CleoInstance.VersionManager;
+
+        // limit adjusters support: get adresses from (possibly) patched references
+        inj.MemoryRead(gvm.TranslateMemoryAddress(MA_SCM_BLOCK_REF), scmBlock);
+        inj.MemoryRead(gvm.TranslateMemoryAddress(MA_MISSION_BLOCK_REF), missionBlock);
     }
 
     CScriptEngine::~CScriptEngine()
