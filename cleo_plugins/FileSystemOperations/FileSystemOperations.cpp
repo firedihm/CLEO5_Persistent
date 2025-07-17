@@ -32,13 +32,7 @@ public:
 
     FileSystemOperations() 
     {
-        auto cleoVer = CLEO_GetVersion();
-        if (cleoVer < CLEO_VERSION)
-        {
-            auto err = StringPrintf("This plugin requires version %X or later! \nCurrent version of CLEO is %X.", CLEO_VERSION >> 8, cleoVer >> 8);
-            MessageBox(HWND_DESKTOP, err.c_str(), TARGET_NAME, MB_SYSTEMMODAL | MB_ICONERROR);
-            return;
-        }
+        if (!PluginCheckCleoVersion()) return;
 
         File::initialize(CLEO_GetGameVersion()); // file utils
 

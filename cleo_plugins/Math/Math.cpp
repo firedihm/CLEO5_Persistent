@@ -18,13 +18,7 @@ public:
         randomDevice(),
         randomGenerator(randomDevice())
     {
-        auto cleoVer = CLEO_GetVersion();
-        if (cleoVer < CLEO_VERSION)
-        {
-            auto err = StringPrintf("This plugin requires version %X or later! \nCurrent version of CLEO is %X.", CLEO_VERSION >> 8, cleoVer >> 8);
-            MessageBox(HWND_DESKTOP, err.c_str(), TARGET_NAME, MB_SYSTEMMODAL | MB_ICONERROR);
-            return;
-        }
+        if (!PluginCheckCleoVersion()) return;
 
         // register opcodes
         CLEO_RegisterOpcode(0x0A8E, opcode_0A8E); // x = a + b (int)
