@@ -242,6 +242,12 @@ public:
     static OpcodeResult __stdcall opcode_0AC2(CLEO::CRunningScript* thread)
     {
         auto stream = (CAudioStream*)OPCODE_READ_PARAM_UINT(); VALIDATE_STREAM();
+
+        if (stream && !stream->Is3d())
+        {
+            LOG_WARNING(thread, "3d audio stream command used with non-3d audio stream in script %s", ScriptInfoStr(thread).c_str());
+        }
+
         CVector pos;
         pos.x = OPCODE_READ_PARAM_FLOAT();
         pos.y = OPCODE_READ_PARAM_FLOAT();
@@ -258,6 +264,11 @@ public:
         auto stream = (CAudioStream*)OPCODE_READ_PARAM_UINT(); VALIDATE_STREAM();
         auto handle = OPCODE_READ_PARAM_OBJECT_HANDLE();
 
+        if (stream && !stream->Is3d())
+        {
+            LOG_WARNING(thread, "3d audio stream command used with non-3d audio stream in script %s", ScriptInfoStr(thread).c_str());
+        }
+
         if (stream)
         {
             auto object = CPools::GetObject(handle);
@@ -273,6 +284,11 @@ public:
         auto stream = (CAudioStream*)OPCODE_READ_PARAM_UINT(); VALIDATE_STREAM();
         auto handle = OPCODE_READ_PARAM_PED_HANDLE();
 
+        if (stream && !stream->Is3d())
+        {
+            LOG_WARNING(thread, "3d audio stream command used with non-3d audio stream in script %s", ScriptInfoStr(thread).c_str());
+        }
+
         if (stream)
         {
             auto ped = CPools::GetPed(handle);
@@ -287,6 +303,11 @@ public:
     {
         auto stream = (CAudioStream*)OPCODE_READ_PARAM_UINT(); VALIDATE_STREAM();
         auto handle = OPCODE_READ_PARAM_VEHICLE_HANDLE();
+
+        if (stream && !stream->Is3d())
+        {
+            LOG_WARNING(thread, "3d audio stream command used with non-3d audio stream in script %s", ScriptInfoStr(thread).c_str());
+        }
 
         if (stream)
         {
