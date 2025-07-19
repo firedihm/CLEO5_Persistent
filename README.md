@@ -21,6 +21,7 @@ CLEO itself does not replace any game file, however the following files and fold
 - **cleo\\cleo_plugins\\SA.FileSystemOperations.cleo** - disk drive files related operations plugin
 - **cleo\\cleo_plugins\\SA.GameEntities.cleo** - cars/peds/objects/pickups related utilities plugin
 - **cleo\\cleo_plugins\\SA.IniFiles.cleo** - .ini config files handling plugin
+- **cleo\\cleo_plugins\\SA.Input.cleo** - keyboard/mouse related utilities plugin
 - **cleo\\cleo_plugins\\SA.Math.cleo** - additional math operations plugin
 - **cleo\\cleo_plugins\\SA.MemoryOperations.cleo** - memory and .dll libraries utilities plugin
 - **cleo\\cleo_plugins\\SA.Text.cleo** - text processing and screen drawing plugin
@@ -46,7 +47,8 @@ CLEO scripts can be found on Grand Theft Auto fansites and modding sites such as
 
 CLEO is continually being improved and extended over time. In very rare circumstances, new major releases may break some older scripts. To fix this, CLEO provides a 'compatibility mode' to closely emulate behavior of previous versions and improve stability of old scripts. 
 - To run a script with maximum compatibility with 'CLEO 4', change the script extension from `.cs` to `.cs4`.
-- To run a script with maximum compatibility with 'CLEO 3', change the script extension from `.cs` to `.cs3`. 
+- To run a script with maximum compatibility with 'CLEO 3', change the script extension from `.cs` to `.cs3`.  
+[Read more about differences in legacy modes](https://github.com/cleolibrary/CLEO5/wiki/CLEO4-Compat-Mode-(.cs4))
 
 ## Creating CLEO Scripts
 
