@@ -13,17 +13,17 @@
 namespace CLEO
 {
 
-enum class InitStage
-{
-    None,
-    Initial,
-    OnDraw,
-    Done = OnDraw
-};
-
 class CCleoInstance
 {
     public:
+        enum class InitStage
+        {
+                None,
+                Initial,
+                OnDraw,
+                Done = OnDraw
+        };
+
         // order here defines init and deinit order!
         CDmaFix					DmaFix;
         CGameMenu				GameMenu;
