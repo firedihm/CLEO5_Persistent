@@ -49,8 +49,8 @@ void CCleoInstance::Start(InitStage stage)
                 ScriptEngine.InjectLate(CodeInjector);
 
                 CodeInjector.InjectFunction(GetScriptStringParam, gaddrof(::CRunningScript::ReadTextLabelFromScript));
-                CodeInjector.ReplaceFunction(OnDebugDisplayTextBuffer_Idle, VersionManager.TranslateMemoryAddress(MA_CALL_DEBUG_DISPLAY_TEXT_BUFFER_IDLE), &GameRestartDebugDisplayTextBuffer_IdleOrig);
-                CodeInjector.ReplaceFunction(OnDebugDisplayTextBuffer_Frontend, VersionManager.TranslateMemoryAddress(MA_CALL_DEBUG_DISPLAY_TEXT_BUFFER_FRONTEND), &GameRestartDebugDisplayTextBuffer_FrontendOrig);
+                CodeInjector.ReplaceFunction(OnDebugDisplayTextBuffer_Idle, VersionManager.TranslateMemoryAddress(MA_CALL_DEBUG_DISPLAY_TEXT_BUFFER_IDLE), &GameRestartDebugDisplayTextBuffer_Idle_Orig);
+                CodeInjector.ReplaceFunction(OnDebugDisplayTextBuffer_Frontend, VersionManager.TranslateMemoryAddress(MA_CALL_DEBUG_DISPLAY_TEXT_BUFFER_FRONTEND), &GameRestartDebugDisplayTextBuffer_Frontend_Orig);
                 CodeInjector.ReplaceFunction(OnUpdateGameLogics, VersionManager.TranslateMemoryAddress(MA_CALL_UPDATE_GAME_LOGICS), &UpdateGameLogics_Orig);
 
                 PluginSystem.LogLoadedPlugins();
@@ -189,13 +189,13 @@ void __declspec(naked) CCleoInstance::OnGameRestart3()
 
 void __cdecl CCleoInstance::OnDebugDisplayTextBuffer_Idle()
 {
-        GameRestartDebugDisplayTextBuffer_IdleOrig();
+        GameRestartDebugDisplayTextBuffer_Idle_Orig();
         CallCallbacks(eCallbackId::DrawingFinished);
 }
 
 void __cdecl CCleoInstance::OnDebugDisplayTextBuffer_Frontend()
 {
-        GameRestartDebugDisplayTextBuffer_FrontendOrig();
+        GameRestartDebugDisplayTextBuffer_Frontend_Orig();
         CallCallbacks(eCallbackId::DrawingFinished);
 }
 
