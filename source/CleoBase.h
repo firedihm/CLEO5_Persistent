@@ -1,21 +1,22 @@
 #pragma once
 
-#include "CCodeInjector.h"
-#include "CGameVersionManager.h"
 #include "CDmaFix.h"
 #include "CGameMenu.h"
-#include "CModuleSystem.h"
+#include "CCodeInjector.h"
 #include "CPluginSystem.h"
+#include "CGameVersionManager.h"
 #include "CScriptEngine.h"
 #include "CCustomOpcodeSystem.h"
+#include "CModuleSystem.h"
 #include "OpcodeInfoDatabase.h"
 
 namespace CLEO
 {
-    class CCleoInstance
-    {
+
+class CCleoInstance
+{
     public:
-        enum InitStage : size_t
+        enum class InitStage
         {
             None,
             Initial,
@@ -34,35 +35,21 @@ namespace CLEO
         CModuleSystem			ModuleSystem;
         OpcodeInfoDatabase		OpcodeInfoDb;
 
-        int saveSlot = -1; // -1 if not loaded from save
-
         CCleoInstance() = default;
-        virtual ~CCleoInstance();
+        ~CCleoInstance() { Stop(); }
 
         void Start(InitStage stage);
         void Stop();
 
-        void GameBegin();
-        void GameEnd();
-
-        bool IsStarted() const { return m_initStage != InitStage::None; }
-
-        void AddCallback(eCallbackId id, void* func);
-        void RemoveCallback(eCallbackId id, void* func);
-        const std::set<void*>& GetCallbacks(eCallbackId id);
-        void CallCallbacks(eCallbackId id);
-        void CallCallbacks(eCallbackId id, DWORD arg);
-
-        void(__cdecl* UpdateGameLogics_Orig)() = nullptr;
-        static void __cdecl OnUpdateGameLogics();
-
         // call for InitInstance
         HWND(__cdecl* CreateMainWnd_Orig)(HINSTANCE) = nullptr;
-        static HWND __cdecl OnCreateMainWnd(HINSTANCE hinst);
-
-        // main window procedure hook
         LRESULT(__stdcall* MainWndProc_Orig)(HWND, UINT, WPARAM, LPARAM) = nullptr;
+        static HWND __cdecl OnCreateMainWnd(HINSTANCE hinst);
         static LRESULT __stdcall OnMainWndProc(HWND, UINT, WPARAM, LPARAM);
+
+        void GameBegin();
+        void GameEnd();
+        void GameRestart();
 
         // calls to CTheScripts::Init
         void(__cdecl* ScmInit1_Orig)() = nullptr;
@@ -86,18 +73,29 @@ namespace CLEO
 
         // calls to CDebug::DebugDisplayTextBuffer()
         void(__cdecl* GameRestartDebugDisplayTextBuffer_IdleOrig)() = nullptr;
-        static void OnDebugDisplayTextBuffer_Idle();
-
         void(__cdecl* GameRestartDebugDisplayTextBuffer_FrontendOrig)() = nullptr;
+        static void OnDebugDisplayTextBuffer_Idle();
         static void OnDebugDisplayTextBuffer_Frontend();
-        
+
+        void(__cdecl* UpdateGameLogics_Orig)() = nullptr;
+        static void __cdecl OnUpdateGameLogics();
+
+        void AddCallback(eCallbackId id, void* func) { m_callbacks[id].insert(func); }
+        void RemoveCallback(eCallbackId id, void* func) { m_callbacks[id].erase(func); }
+        void CallCallbacks(eCallbackId id);
+        void CallCallbacks(eCallbackId id, DWORD arg);
+
+        bool IsStarted() const { return m_InitStage != InitStage::None; }
+        InitStage GetNextInitStage() const { return InitStage(m_InitStage + 1); }
+        int GetSaveSlot() const { return m_saveSlot; }
 
     private:
-        InitStage m_initStage = InitStage::None;
-        bool m_bGameInProgress;
+        InitStage m_InitStage;
+        bool m_bGameInProgress; // is this really needed?
+        int m_saveSlot = -1;
         std::map<eCallbackId, std::set<void*>> m_callbacks;
-    };
+};
 
-    extern CCleoInstance CleoInstance;
-}
+extern CCleoInstance CleoInstance;
 
+} // namespace CLEO
