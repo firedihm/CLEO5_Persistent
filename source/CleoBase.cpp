@@ -66,7 +66,7 @@ void CCleoInstance::Stop()
         m_InitStage = InitStage::None;
 }
 
-HWND CCleoInstance::OnCreateMainWnd(HINSTANCE hinst)
+HWND __cdecl CCleoInstance::OnCreateMainWnd(HINSTANCE hinst)
 {
         CleoSingletonCheck(); // check once for CLEO.asi duplicates
 
