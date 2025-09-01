@@ -103,7 +103,7 @@ void CCleoInstance::GameBegin()
 
         TRACE("Starting new game session, save slot: %d", m_saveSlot);
 
-        Start(CCleoInstance::InitStage::OnDraw); // late initialization if not done yet
+        Start(InitStage::OnDraw); // late initialization if not done yet
         CallCallbacks(eCallbackId::GameBegin, m_saveSlot);
 }
 
