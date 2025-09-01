@@ -13,17 +13,17 @@
 namespace CLEO
 {
 
+enum class InitStage
+{
+    None,
+    Initial,
+    OnDraw,
+    Done = OnDraw
+};
+
 class CCleoInstance
 {
     public:
-        enum class InitStage
-        {
-            None,
-            Initial,
-            OnDraw,
-            Done = OnDraw
-        };
-
         // order here defines init and deinit order!
         CDmaFix					DmaFix;
         CGameMenu				GameMenu;
@@ -62,7 +62,7 @@ class CCleoInstance
         static void OnGameRestart2();
         static void OnGameRestart3();
 
-        // calls to CDebug::DebugDisplayTextBuffer()
+        // calls to CDebug::DebugDisplayTextBuffer
         static void OnDebugDisplayTextBuffer_Idle();
         static void OnDebugDisplayTextBuffer_Frontend();
 
@@ -95,7 +95,7 @@ class CCleoInstance
         void(__cdecl* GameRestart2_Orig)() = nullptr;
         void(__cdecl* GameRestart3_Orig)() = nullptr;
 
-        // calls to CDebug::DebugDisplayTextBuffer()
+        // calls to CDebug::DebugDisplayTextBuffer
         void(__cdecl* GameRestartDebugDisplayTextBuffer_Idle_Orig)() = nullptr;
         void(__cdecl* GameRestartDebugDisplayTextBuffer_Frontend_Orig)() = nullptr;
 
