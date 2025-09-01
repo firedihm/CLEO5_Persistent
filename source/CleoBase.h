@@ -101,7 +101,7 @@ class CCleoInstance
 
         void(__cdecl* UpdateGameLogics_Orig)() = nullptr;
 
-        InitStage m_InitStage;
+        InitStage m_InitStage = InitStage::None;
         bool m_bGameInProgress = false; // is this really needed?
         int m_saveSlot = -1;
         std::map<eCallbackId, std::set<void*>> m_callbacks;
