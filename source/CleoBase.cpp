@@ -66,31 +66,20 @@ void CCleoInstance::Stop()
         m_InitStage = InitStage::None;
 }
 
-HWND __cdecl CCleoInstance::OnCreateMainWnd(HINSTANCE hinst)
+void CCleoInstance::CallCallbacks(eCallbackId id)
 {
-        CleoSingletonCheck(); // check once for CLEO.asi duplicates
-
-        auto window = CreateMainWnd_Orig(hinst);
-
-        // redirect window handling procedure
-        *((size_t*)&MainWndProc_Orig) = GetWindowLongPtr(window, GWLP_WNDPROC);
-        SetWindowLongPtr(window, GWLP_WNDPROC, (LONG)OnMainWndProc);
-
-        return window;
+        for (void* func : m_callbacks[id]) {
+            typedef void WINAPI callback(void);
+            ((callback*)func)();
+        }
 }
 
-LRESULT __stdcall CCleoInstance::OnMainWndProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
+void CCleoInstance::CallCallbacks(eCallbackId id, DWORD arg)
 {
-        switch (msg) {
-            case WM_ACTIVATE:
-                CallCallbacks(eCallbackId::MainWindowFocus, wparam != 0);
-                break;
-            case WM_KILLFOCUS:
-                CallCallbacks(eCallbackId::MainWindowFocus, false);
-                break;
+        for (void* func : m_callbacks[id]) {
+            typedef void WINAPI callback(DWORD);
+            ((callback*)func)(arg);
         }
-
-        return MainWndProc_Orig(wnd, msg, wparam, lparam);
 }
 
 void CCleoInstance::GameBegin()
@@ -135,6 +124,33 @@ void CCleoInstance::GameRestart()
         CallCallbacks(eCallbackId::GameEnd);
         ScriptEngine.GameRestart();
         OpcodeSystem.FinalizeScriptObjects();        
+}
+
+HWND __cdecl CCleoInstance::OnCreateMainWnd(HINSTANCE hinst)
+{
+        CleoSingletonCheck(); // check once for CLEO.asi duplicates
+
+        auto window = CreateMainWnd_Orig(hinst);
+
+        // redirect window handling procedure
+        *((size_t*)&MainWndProc_Orig) = GetWindowLongPtr(window, GWLP_WNDPROC);
+        SetWindowLongPtr(window, GWLP_WNDPROC, (LONG)OnMainWndProc);
+
+        return window;
+}
+
+LRESULT __stdcall CCleoInstance::OnMainWndProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+        switch (msg) {
+            case WM_ACTIVATE:
+                CallCallbacks(eCallbackId::MainWindowFocus, wparam != 0);
+                break;
+            case WM_KILLFOCUS:
+                CallCallbacks(eCallbackId::MainWindowFocus, false);
+                break;
+        }
+
+        return MainWndProc_Orig(wnd, msg, wparam, lparam);
 }
 
 void CCleoInstance::OnScmInit1()
@@ -204,22 +220,6 @@ void __cdecl CCleoInstance::OnUpdateGameLogics()
         CallCallbacks(eCallbackId::GameProcessBefore);
         UpdateGameLogics_Orig();
         CallCallbacks(eCallbackId::GameProcessAfter);
-}
-
-void CCleoInstance::CallCallbacks(eCallbackId id)
-{
-        for (void* func : m_callbacks[id]) {
-            typedef void WINAPI callback(void);
-            ((callback*)func)();
-        }
-}
-
-void CCleoInstance::CallCallbacks(eCallbackId id, DWORD arg)
-{
-        for (void* func : m_callbacks[id]) {
-            typedef void WINAPI callback(DWORD);
-            ((callback*)func)(arg);
-        }
 }
 
 void WINAPI CLEO_ResolvePath(CLEO::CRunningScript* thread, char* inOutPath, DWORD pathMaxLen)
