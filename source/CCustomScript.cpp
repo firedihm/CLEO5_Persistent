@@ -121,7 +121,7 @@ CCustomScript::CCustomScript(const char* szFileName, bool bIsMiss, CRunningScrip
             }
             else
             {
-                m_debugMode = CleoInstance.ScriptEngine.NativeScriptsDebugMode; // global setting
+                m_debugMode = CleoInstance.ScriptEngine.GetNativeScriptsDebugMode(); // global setting
                 m_workDir = Filepath_Game; // game root
             }
 
@@ -206,13 +206,13 @@ void CCustomScript::ShutdownThisScript()
 
 bool CCustomScript::GetDebugMode() const
 {
-    return bIsCustom ? m_debugMode : CleoInstance.ScriptEngine.NativeScriptsDebugMode;
+    return bIsCustom ? m_debugMode : CleoInstance.ScriptEngine.GetNativeScriptsDebugMode();
 }
 
 void CCustomScript::SetDebugMode(bool enabled)
 {
     if (!bIsCustom)
-        CleoInstance.ScriptEngine.NativeScriptsDebugMode = enabled;
+        CleoInstance.ScriptEngine.SetNativeScriptsDebugMode(enabled);
     else
         m_debugMode = enabled;
 }
