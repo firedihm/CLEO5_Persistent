@@ -25,8 +25,8 @@ class CCleoInstance
 {
     public:
         // order here defines init and deinit order!
-        CDmaFix					DmaFix;
-        CGameMenu				GameMenu;
+        CDmaFix				DmaFix;
+        CGameMenu			GameMenu;
         CCodeInjector			CodeInjector;
         CPluginSystem			PluginSystem;
         CGameVersionManager		VersionManager;
@@ -42,7 +42,6 @@ class CCleoInstance
         void Stop();
 
         bool IsStarted() const { return m_InitStage != InitStage::None; }
-        InitStage GetNextInitStage() const { return InitStage(m_InitStage + 1); }
         int GetSaveSlot() const { return m_saveSlot; }
 
         const std::set<void*>& GetCallbacks(eCallbackId id) { return m_callbacks[id]; }
