@@ -25,8 +25,8 @@ class CCleoInstance
 {
     public:
         // order here defines init and deinit order!
-        CDmaFix				DmaFix;
-        CGameMenu			GameMenu;
+        CDmaFix				        DmaFix;
+        CGameMenu			        GameMenu;
         CCodeInjector			CodeInjector;
         CPluginSystem			PluginSystem;
         CGameVersionManager		VersionManager;
