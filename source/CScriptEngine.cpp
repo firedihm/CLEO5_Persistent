@@ -33,286 +33,6 @@ void CScriptEngine::InjectLate(CCodeInjector& inj)
         inj.MemoryRead(gvm.TranslateMemoryAddress(MA_MISSION_BLOCK_REF), missionBlock);
 }
 
-
-
-
-
-    const char* __fastcall GetScriptStringParam(CRunningScript* thread, int dummy, char* buff, int buffLen)
-    {
-        if (buff == nullptr || buffLen < 0)
-        {
-            LOG_WARNING(0, "Invalid ReadStringParam input argument! Ptr: 0x%08X, Size: %d", buff, buffLen);
-            CLEO_SkipOpcodeParams(thread, 1);
-            return nullptr;
-        }
-
-        auto paramType = thread->PeekDataType();
-        auto arrayType = thread->PeekArrayType();
-        auto isVariableInt = IsVariable(paramType) && (arrayType == eArrayDataType::ADT_NONE || arrayType == eArrayDataType::ADT_INT);
-
-        // integer address to text buffer
-        if (IsImmInteger(paramType) || isVariableInt)
-        {
-            auto str = (char*)CLEO_PeekIntOpcodeParam(thread);
-            CLEO_SkipOpcodeParams(thread, 1);
-
-            if ((size_t)str <= MinValidAddress)
-            {
-                LOG_WARNING(thread, "Invalid '0x%X' pointer of input string argument %s in script %s", str, GetParamInfo().c_str(), ScriptInfoStr(thread).c_str());
-                return nullptr; // error
-            }
-
-            auto len = std::min((int)strlen(str), buffLen);
-            memcpy(buff, str, len);
-            if (len < buffLen) buff[len] = '\0'; // add terminator if possible
-            return str; // pointer to original data
-        }
-        else if (paramType == DT_VARLEN_STRING)
-        {
-            CleoInstance.OpcodeSystem.handledParamCount++;
-            thread->IncPtr(1); // already processed paramType
-
-            DWORD length = *thread->GetBytePointer(); // as unsigned byte!
-            thread->IncPtr(1); // length info
-
-            char* str = (char*)thread->GetBytePointer();
-            thread->IncPtr(length); // text data
-
-            memcpy(buff, str, std::min(buffLen, (int)length));
-            if ((int)length < buffLen) buff[length] = '\0'; // add terminator if possible
-            return buff;
-        }
-        else if (IsImmString(paramType))
-        {
-            thread->IncPtr(1); // already processed paramType
-            auto str = (char*)thread->GetBytePointer();
-
-            switch (paramType)
-            {
-                case DT_TEXTLABEL:
-                {
-                    CleoInstance.OpcodeSystem.handledParamCount++;
-                    memcpy(buff, str, std::min(buffLen, 8));
-                    thread->IncPtr(8); // text data
-                    return buff;
-                }
-
-                case DT_STRING:
-                {
-                    CleoInstance.OpcodeSystem.handledParamCount++;
-                    memcpy(buff, str, std::min(buffLen, 16));
-                    thread->IncPtr(16); // ext data
-                    return buff;
-                }
-            }
-        }
-        else if (IsVarString(paramType))
-        {
-            switch (paramType)
-            {
-                // short string variable
-                case DT_VAR_TEXTLABEL:
-                case DT_LVAR_TEXTLABEL:
-                case DT_VAR_TEXTLABEL_ARRAY:
-                case DT_LVAR_TEXTLABEL_ARRAY:
-                {
-                    auto str = (char*)CScriptEngine::GetScriptParamPointer(thread);
-                    memcpy(buff, str, std::min(buffLen, 8));
-                    if (buffLen > 8) buff[8] = '\0'; // add terminator if possible
-                    return buff;
-                }
-
-                // long string variable
-                case DT_VAR_STRING:
-                case DT_LVAR_STRING:
-                case DT_VAR_STRING_ARRAY:
-                case DT_LVAR_STRING_ARRAY:
-                {
-                    auto str = (char*)CScriptEngine::GetScriptParamPointer(thread);
-                    memcpy(buff, str, std::min(buffLen, 16));
-                    if (buffLen > 16) buff[16] = '\0'; // add terminator if possible
-                    return buff;
-                }
-            }
-        }
-
-        // unsupported param type
-        LOG_WARNING(thread, "Argument %s expected to be string, got %s in script %s", GetParamInfo().c_str(), ToKindStr(paramType, arrayType), ScriptInfoStr(thread).c_str());
-        CLEO_SkipOpcodeParams(thread, 1); // try skip unhandled param
-        return nullptr; // error
-    }
-
-    SCRIPT_VAR* CScriptEngine::GetScriptParamPointer(CRunningScript* thread)
-    {
-        auto type = DT_DWORD; //thread->PeekDataType(); // ignored in GetPointerToScriptVariable anyway
-        auto ptr = ((::CRunningScript*)thread)->GetPointerToScriptVariable(type);
-        CleoInstance.OpcodeSystem.handledParamCount++; // TODO: hook game's GetPointerToScriptVariable so this is always incremented?
-        return (SCRIPT_VAR*)ptr;
-    }
-
-    void CScriptEngine::GetScriptParams(CRunningScript* script, BYTE count)
-    {
-        ((::CRunningScript*)script)->CollectParameters(count);
-        CleoInstance.OpcodeSystem.handledParamCount += count;
-    }
-
-    void CScriptEngine::SetScriptParams(CRunningScript* script, BYTE count)
-    {
-        ((::CRunningScript*)script)->StoreParameters(count);
-        CleoInstance.OpcodeSystem.handledParamCount += count;
-    }
-
-    CRunningScript* CScriptEngine::FindScriptNamed(const char* threadName, bool standardScripts, bool customScripts, size_t resultIndex)
-    {
-        if (standardScripts)
-        {
-            for (auto script = (CRunningScript*)CTheScripts::pActiveScripts; script; script = script->GetNext())
-            {
-                if (script->IsCustom()) 
-                {
-                    // skip custom scripts in the queue, they are handled separately
-                    continue;
-                }
-                if (_strnicmp(threadName, script->Name, sizeof(script->Name)) == 0)
-                {
-                    if (resultIndex == 0) return script;
-                    else resultIndex--;
-                }
-            }
-        }
-
-        if (customScripts)
-        {
-            if (CustomMission)
-            {
-                if (_strnicmp(threadName, CustomMission->Name, sizeof(CustomMission->Name)) == 0)
-                {
-                    if (resultIndex == 0) return CustomMission;
-                    else resultIndex--;
-                }
-            }
-
-            for (auto it = CustomScripts.begin(); it != CustomScripts.end(); ++it)
-            {
-                auto cs = *it;
-                if (_strnicmp(threadName, cs->Name, sizeof(cs->Name)) == 0)
-                {
-                    if (resultIndex == 0) return cs;
-                    else resultIndex--;
-                }
-            }
-        }
-
-        return nullptr;
-    }
-
-    CRunningScript* CScriptEngine::FindScriptByFilename(const char* path, size_t resultIndex)
-    {
-        if (path == nullptr) return nullptr;
-
-        auto pathLen = strlen(path);
-        auto CheckScript = [&](CRunningScript* script)
-        {
-            if (script == nullptr) return false;
-
-            auto cs = (CCustomScript*)script;
-            std::string scriptPath = cs->GetScriptFileFullPath();
-
-            if (scriptPath.length() < pathLen) return false;
-
-            auto startPos = scriptPath.length() - pathLen;
-            if (_strnicmp(path, scriptPath.c_str() + startPos, pathLen) == 0)
-            {
-                if (startPos > 0 && path[startPos - 1] != '\\') return false; // whole file/dir name must match
-
-                return true;
-            }
-
-            return false;
-        };
-
-        // standard scripts
-        for (auto script = (CRunningScript*)CTheScripts::pActiveScripts; script; script = script->GetNext())
-        {
-            if (CheckScript(script))
-            {
-                if (resultIndex == 0) return script;
-                else resultIndex--;
-            }
-        }
-
-        // custom scripts
-        if (CheckScript(CustomMission))
-        {
-            if (resultIndex == 0) return CustomMission;
-            else resultIndex--;
-        }
-
-        for (auto it = CustomScripts.begin(); it != CustomScripts.end(); ++it)
-        {
-            auto cs = *it;
-            if (CheckScript(cs))
-            {
-                if (resultIndex == 0) return cs;
-                else resultIndex--;
-            }
-        }
-
-        return nullptr;
-    }
-
-    bool CScriptEngine::IsActiveScriptPtr(const CRunningScript* ptr) const
-    {
-        for (auto script = (CRunningScript*)CTheScripts::pActiveScripts; script != nullptr; script = script->GetNext())
-        {
-            if (script == ptr)
-                return ptr->IsActive();
-        }
-
-        for (const auto script : CustomScripts)
-        {
-            if (script == ptr)
-                return ptr->IsActive();
-        }
-
-        return false;
-    }
-
-    bool CScriptEngine::IsValidScriptPtr(const CRunningScript* ptr) const
-    {
-        for (auto script = (CRunningScript*)CTheScripts::pActiveScripts; script != nullptr; script = script->GetNext())
-        {
-            if (script == ptr)
-                return true;
-        }
-
-        for (auto script = (CLEO::CRunningScript*)CTheScripts::pIdleScripts; script != nullptr; script = script->GetNext())
-        {
-            if (script == ptr)
-                return true;
-        }
-
-        for (const auto script : CustomScripts)
-        {
-            if (script == ptr)
-                return true;
-        }
-
-        for (const auto script : ScriptsWaitingForDelete)
-        {
-            if (script == ptr)
-                return true;
-        }
-
-        return false;
-    }
-
-
-
-
-
-
-
 CCustomScript* CScriptEngine::LoadScript(const char* szFilePath)
 {
         auto cs = new CCustomScript(szFilePath);
@@ -396,8 +116,8 @@ void CScriptEngine::AddCustomScript(CCustomScript *cs)
 
         // run registered callbacks
         for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptRegister)) {
-            typedef void WINAPI callback(CCustomScript*);
-            ((callback*)func)(cs);
+                typedef void WINAPI callback(CCustomScript*);
+                ((callback*)func)(cs);
         }
 }
 
@@ -445,6 +165,148 @@ void CScriptEngine::RemoveCustomScript(CCustomScript *cs)
                     TRACE("Unregistering custom %s named '%s'", cs->IsMission() ? "mission" : "script", cs->GetName().c_str());
                     ScriptsWaitingForDelete.push_back(cs);
         }
+}
+
+CRunningScript* CScriptEngine::FindScriptNamed(const char* threadName, bool standardScripts, bool customScripts, size_t resultIndex)
+{
+        if (standardScripts) {
+                for (auto script = (CRunningScript*)CTheScripts::pActiveScripts; script; script = script->GetNext()) {
+                        if (script->IsCustom())
+                                continue; // skip custom scripts in the queue, they are handled separately
+
+                        if (_strnicmp(threadName, script->Name, sizeof(script->Name)) == 0) {
+                                if (resultIndex == 0) return script;
+                                else resultIndex--;
+                        }
+                }
+        }
+
+        if (customScripts) {
+                if (CustomMission) {
+                        if (_strnicmp(threadName, CustomMission->Name, sizeof(CustomMission->Name)) == 0) {
+                                if (resultIndex == 0) return CustomMission;
+                                else resultIndex--;
+                        }
+                }
+
+                for (auto cs : CustomScripts) {
+                        if (_strnicmp(threadName, cs->Name, sizeof(cs->Name)) == 0) {
+                                if (resultIndex == 0) return cs;
+                                else resultIndex--;
+                        }
+                }
+        }
+
+        return nullptr;
+}
+
+CRunningScript* CScriptEngine::FindScriptByFilename(const char* path, size_t resultIndex)
+{
+        if (!path)
+                return nullptr;
+
+        auto pathLen = strlen(path);
+        auto CheckScript = [&](CRunningScript* script) -> bool {
+                std::string scriptPath = (CCustomScript*)cs->GetScriptFileFullPath();
+
+                if (scriptPath.length() < pathLen)
+                        return false;
+
+                auto startPos = scriptPath.length() - pathLen;
+                if (_strnicmp(path, scriptPath.c_str() + startPos, pathLen) == 0) {
+                        if (startPos > 0 && path[startPos - 1] != '\\')
+                                return false; // whole file/dir name must match
+                        else
+                                return true;
+                }
+
+                return false;
+        };
+
+        // standard scripts
+        for (auto script = (CRunningScript*)CTheScripts::pActiveScripts; script; script = script->GetNext()) {
+                if (CheckScript(script)) {
+                        if (resultIndex == 0) return script;
+                        else resultIndex--;
+                }
+        }
+
+        // custom scripts
+        if (CustomMission) {
+                if (CheckScript(CustomMission)) {
+                        if (resultIndex == 0) return CustomMission;
+                        else resultIndex--;
+                }
+        }
+
+        for (auto cs : CustomScripts) {
+                if (CheckScript(cs)) {
+                        if (resultIndex == 0) return cs;
+                        else resultIndex--;
+                }
+        }
+
+        return nullptr;
+}
+
+bool CScriptEngine::IsActiveScriptPtr(const CRunningScript* ptr) const
+{
+        for (auto script = (CRunningScript*)CTheScripts::pActiveScripts; script; script = script->GetNext()) {
+                if (script == ptr)
+                        return ptr->IsActive();
+        }
+
+        for (auto script : CustomScripts) {
+                if (script == ptr)
+                        return ptr->IsActive();
+        }
+
+        return false;
+}
+
+bool CScriptEngine::IsValidScriptPtr(const CRunningScript* ptr) const
+{
+        for (auto script = (CRunningScript*)CTheScripts::pActiveScripts; script; script = script->GetNext()) {
+                if (script == ptr)
+                        return true;
+        }
+
+        for (auto script = (CLEO::CRunningScript*)CTheScripts::pIdleScripts; script; script = script->GetNext()) {
+                if (script == ptr)
+                        return true;
+        }
+
+        for (auto script : CustomScripts) {
+                if (script == ptr)
+                        return true;
+        }
+
+        for (auto script : ScriptsWaitingForDelete) {
+                if (script == ptr)
+                        return true;
+        }
+
+        return false;
+}
+
+SCRIPT_VAR* CScriptEngine::GetScriptParamPointer(CRunningScript* thread)
+{
+        auto type = DT_DWORD; //thread->PeekDataType(); // ignored in GetPointerToScriptVariable anyway
+        auto ptr = ((::CRunningScript*)thread)->GetPointerToScriptVariable(type);
+        CleoInstance.OpcodeSystem.handledParamCount++; // TODO: hook game's GetPointerToScriptVariable so this is always incremented?
+        return (SCRIPT_VAR*)ptr;
+}
+
+void CScriptEngine::GetScriptParams(CRunningScript* script, BYTE count)
+{
+        ((::CRunningScript*)script)->CollectParameters(count);
+        CleoInstance.OpcodeSystem.handledParamCount += count;
+}
+
+void CScriptEngine::SetScriptParams(CRunningScript* script, BYTE count)
+{
+        ((::CRunningScript*)script)->StoreParameters(count);
+        CleoInstance.OpcodeSystem.handledParamCount += count;
 }
 
 // LoadState and SaveState could use some refactoring: templates and structs below are used just for them
@@ -821,4 +683,109 @@ void CScriptEngine::OnSaveScmData()
         UnregisterAllCustomScripts();
         CTheScripts::Save();
         ReregisterAllCustomScripts();
+}
+
+const char* __fastcall GetScriptStringParam(CRunningScript* thread, int dummy, char* buff, int buffLen)
+{
+        if (buff == nullptr || buffLen < 0)
+        {
+            LOG_WARNING(0, "Invalid ReadStringParam input argument! Ptr: 0x%08X, Size: %d", buff, buffLen);
+            CLEO_SkipOpcodeParams(thread, 1);
+            return nullptr;
+        }
+
+        auto paramType = thread->PeekDataType();
+        auto arrayType = thread->PeekArrayType();
+        auto isVariableInt = IsVariable(paramType) && (arrayType == eArrayDataType::ADT_NONE || arrayType == eArrayDataType::ADT_INT);
+
+        // integer address to text buffer
+        if (IsImmInteger(paramType) || isVariableInt)
+        {
+            auto str = (char*)CLEO_PeekIntOpcodeParam(thread);
+            CLEO_SkipOpcodeParams(thread, 1);
+
+            if ((size_t)str <= MinValidAddress)
+            {
+                LOG_WARNING(thread, "Invalid '0x%X' pointer of input string argument %s in script %s", str, GetParamInfo().c_str(), ScriptInfoStr(thread).c_str());
+                return nullptr; // error
+            }
+
+            auto len = std::min((int)strlen(str), buffLen);
+            memcpy(buff, str, len);
+            if (len < buffLen) buff[len] = '\0'; // add terminator if possible
+            return str; // pointer to original data
+        }
+        else if (paramType == DT_VARLEN_STRING)
+        {
+            CleoInstance.OpcodeSystem.handledParamCount++;
+            thread->IncPtr(1); // already processed paramType
+
+            DWORD length = *thread->GetBytePointer(); // as unsigned byte!
+            thread->IncPtr(1); // length info
+
+            char* str = (char*)thread->GetBytePointer();
+            thread->IncPtr(length); // text data
+
+            memcpy(buff, str, std::min(buffLen, (int)length));
+            if ((int)length < buffLen) buff[length] = '\0'; // add terminator if possible
+            return buff;
+        }
+        else if (IsImmString(paramType))
+        {
+            thread->IncPtr(1); // already processed paramType
+            auto str = (char*)thread->GetBytePointer();
+
+            switch (paramType)
+            {
+                case DT_TEXTLABEL:
+                {
+                    CleoInstance.OpcodeSystem.handledParamCount++;
+                    memcpy(buff, str, std::min(buffLen, 8));
+                    thread->IncPtr(8); // text data
+                    return buff;
+                }
+
+                case DT_STRING:
+                {
+                    CleoInstance.OpcodeSystem.handledParamCount++;
+                    memcpy(buff, str, std::min(buffLen, 16));
+                    thread->IncPtr(16); // ext data
+                    return buff;
+                }
+            }
+        }
+        else if (IsVarString(paramType))
+        {
+            switch (paramType)
+            {
+                // short string variable
+                case DT_VAR_TEXTLABEL:
+                case DT_LVAR_TEXTLABEL:
+                case DT_VAR_TEXTLABEL_ARRAY:
+                case DT_LVAR_TEXTLABEL_ARRAY:
+                {
+                    auto str = (char*)CScriptEngine::GetScriptParamPointer(thread);
+                    memcpy(buff, str, std::min(buffLen, 8));
+                    if (buffLen > 8) buff[8] = '\0'; // add terminator if possible
+                    return buff;
+                }
+
+                // long string variable
+                case DT_VAR_STRING:
+                case DT_LVAR_STRING:
+                case DT_VAR_STRING_ARRAY:
+                case DT_LVAR_STRING_ARRAY:
+                {
+                    auto str = (char*)CScriptEngine::GetScriptParamPointer(thread);
+                    memcpy(buff, str, std::min(buffLen, 16));
+                    if (buffLen > 16) buff[16] = '\0'; // add terminator if possible
+                    return buff;
+                }
+            }
+        }
+
+        // unsupported param type
+        LOG_WARNING(thread, "Argument %s expected to be string, got %s in script %s", GetParamInfo().c_str(), ToKindStr(paramType, arrayType), ScriptInfoStr(thread).c_str());
+        CLEO_SkipOpcodeParams(thread, 1); // try skip unhandled param
+        return nullptr; // error
 }
