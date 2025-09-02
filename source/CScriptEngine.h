@@ -25,9 +25,6 @@ class CScriptEngine
         std::string MainScriptFileName;
         std::string MainScriptCurWorkDir;
 
-        
-        
-
         CScriptEngine() = default;
         CScriptEngine(const CScriptEngine&) = delete; // no copying
         ~CScriptEngine() { GameEnd(); }
@@ -41,25 +38,19 @@ class CScriptEngine
         void RemoveScript(CRunningScript*); // native or custom
         void RemoveCustomScript(CCustomScript*);
 
-        
-        
-
+        // exports
         CRunningScript* FindScriptNamed(const char* threadName, bool standardScripts, bool customScripts, size_t resultIndex = 0); // can be called multiple times to find more scripts named threadName. resultIndex should be incremented until the method returns nullptr
         CRunningScript* FindScriptByFilename(const char* path, size_t resultIndex = 0); // if path is not absolute it will be resolved with cleo directory as root
         bool IsActiveScriptPtr(const CRunningScript*) const; // leads to active script? (regular or custom)
         bool IsValidScriptPtr(const CRunningScript*) const; // leads to any script? (regular or custom)
 
-
-        inline CCustomScript* GetCustomMission() { return CustomMission; } // unused?
-        inline size_t WorkingScriptsCount() { return CustomScripts.size(); }
-
-        static SCRIPT_VAR* GetScriptParamPointer(CRunningScript* thread);
+        CCustomScript* GetCustomMission() { return CustomMission; } // unused?
+        size_t WorkingScriptsCount() { return CustomScripts.size(); }
 
         // params into/from opcodeParams array
+        static SCRIPT_VAR* GetScriptParamPointer(CRunningScript* thread);
         static void GetScriptParams(CRunningScript* script, BYTE count);
         static void SetScriptParams(CRunningScript* script, BYTE count);
-
-        
 
     private:
         bool m_bGameInProgress = false;
@@ -92,8 +83,8 @@ class CScriptEngine
         void(__cdecl* DrawScriptTextBeforeFade_Orig)(char beforeFade) = nullptr;
         static void __cdecl OnDrawScriptText(char beforeFade);
 
-        void OnLoadScmData()
-        void OnSaveScmData()
+        void OnLoadScmData();
+        void OnSaveScmData();
 };
 
 // reimplemented hook of original game's procedure
