@@ -15,6 +15,7 @@ class CScriptEngine
         BYTE* scmBlock = nullptr;
         BYTE* missionBlock = nullptr;
         int missionIndex = -1;
+        CCustomScript* LastScriptCreated = nullptr;
         static SCRIPT_VAR CleoVariables[0x400]; // also defined in .cpp???
 
         // main script stuff
@@ -24,6 +25,9 @@ class CScriptEngine
         std::string MainScriptFileName;
         std::string MainScriptCurWorkDir;
 
+        
+        
+
         CScriptEngine() = default;
         CScriptEngine(const CScriptEngine&) = delete; // no copying
         ~CScriptEngine() { GameEnd(); }
@@ -31,24 +35,14 @@ class CScriptEngine
         void Inject(CCodeInjector&); // Phase 1
         void InjectLate(CCodeInjector&); // Phase 2
 
-        void GameBegin(); // call after new game started
-        void GameEnd();
-        void GameRestart();
-
-        friend class CCustomScript;
-        std::list<CCustomScript*> CustomScripts;
-        std::list<CCustomScript*> ScriptsWaitingForDelete;
-        std::set<unsigned long> InactiveScriptHashes;
-        CCustomScript* CustomMission = nullptr;
-        CCustomScript* LastScriptCreated = nullptr;
-
         CCustomScript* LoadScript(const char* filePath);
         CCustomScript* CreateCustomScript(CRunningScript* fromThread, const char* filePath, int label);
+        void AddCustomScript(CCustomScript*);
+        void RemoveScript(CRunningScript*); // native or custom
+        void RemoveCustomScript(CCustomScript*);
 
-
-
-        static void __cdecl OnDrawScriptText(char beforeFade);
-        static void __fastcall OnProcessScript(CLEO::CRunningScript*);
+        
+        
 
         CRunningScript* FindScriptNamed(const char* threadName, bool standardScripts, bool customScripts, size_t resultIndex = 0); // can be called multiple times to find more scripts named threadName. resultIndex should be incremented until the method returns nullptr
         CRunningScript* FindScriptByFilename(const char* path, size_t resultIndex = 0); // if path is not absolute it will be resolved with cleo directory as root
@@ -56,7 +50,7 @@ class CScriptEngine
         bool IsValidScriptPtr(const CRunningScript*) const; // leads to any script? (regular or custom)
 
 
-        inline CCustomScript* GetCustomMission() { return CustomMission; }
+        inline CCustomScript* GetCustomMission() { return CustomMission; } // unused?
         inline size_t WorkingScriptsCount() { return CustomScripts.size(); }
 
         static SCRIPT_VAR* GetScriptParamPointer(CRunningScript* thread);
@@ -65,26 +59,19 @@ class CScriptEngine
         static void GetScriptParams(CRunningScript* script, BYTE count);
         static void SetScriptParams(CRunningScript* script, BYTE count);
 
-        static void DrawScriptText_Orig(char beforeFade);
+        
 
     private:
-        void(__fastcall* ProcessScript_Orig)(CLEO::CRunningScript*) = nullptr;
-        void(__cdecl* DrawScriptTextAfterFade_Orig)(char beforeFade) = nullptr;
-        void(__cdecl* DrawScriptTextBeforeFade_Orig)(char beforeFade) = nullptr;
-
         bool m_bGameInProgress = false;
         bool m_bReregisterPersistentScripts = false;
-
-        
-        void LoadMainScriptStuff();
+        std::list<CCustomScript*> CustomScripts;
+        std::list<CCustomScript*> ScriptsWaitingForDelete;
+        std::set<unsigned long> InactiveScriptHashes;
+        CCustomScript* CustomMission = nullptr;
 
         // CLEO saves
         void LoadState(int saveSlot);
         void SaveState();
-
-        void AddCustomScript(CCustomScript*);
-        void RemoveScript(CRunningScript*); // native or custom
-        void RemoveCustomScript(CCustomScript*);
 
         void LoadAllCustomScripts();
         void RemoveAllCustomScripts();
@@ -93,6 +80,20 @@ class CScriptEngine
         void UnregisterAllCustomScripts();
         void ReregisterAllCustomScripts();
         void ReregisterPersistentScripts();
+
+        void GameBegin();
+        void GameEnd();
+        void GameRestart();
+
+        void(__fastcall* ProcessScript_Orig)(CLEO::CRunningScript*) = nullptr;
+        static void __fastcall OnProcessScript(CLEO::CRunningScript*);
+
+        void(__cdecl* DrawScriptTextAfterFade_Orig)(char beforeFade) = nullptr;
+        void(__cdecl* DrawScriptTextBeforeFade_Orig)(char beforeFade) = nullptr;
+        static void __cdecl OnDrawScriptText(char beforeFade);
+
+        void OnLoadScmData()
+        void OnSaveScmData()
 };
 
 // reimplemented hook of original game's procedure
