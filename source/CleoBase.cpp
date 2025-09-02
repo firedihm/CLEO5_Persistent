@@ -8,7 +8,7 @@ CCleoInstance CleoInstance;
 
 void CCleoInstance::Start(InitStage stage)
 {
-        if (stage > InitStage::Done || stage != GetNextInitStage()) 
+        if (stage > InitStage::Done || stage != InitStage(m_InitStage + 1)) 
                 return;
 
         if (stage == InitStage::Initial) {
