@@ -33,57 +33,6 @@ void CScriptEngine::InjectLate(CCodeInjector& inj)
         inj.MemoryRead(gvm.TranslateMemoryAddress(MA_MISSION_BLOCK_REF), missionBlock);
 }
 
-void CScriptEngine::GameBegin()
-{
-        if (m_bGameInProgress) {
-                if (m_bReregisterPersistentScripts)
-                        ReregisterPersistentScripts();
-                
-                return;
-        }
-
-        auto& activeScriptsListHead = (CRunningScript*&)CTheScripts::pActiveScripts; // reference, but with type casted to CLEO's CRunningScript
-        if (activeScriptsListHead == nullptr)
-                return; // main script not loaded yet
-
-        m_bGameInProgress = true;
-
-        LoadMainScriptStuff();
-        CleoInstance.ModuleSystem.LoadCleoModules();
-        LoadState(CleoInstance.GetSaveSlot());
-
-        // keep already loaded scripts at front of processing queue
-        auto head = activeScriptsListHead;
-        auto tail = head;
-        while (tail->Next)
-                tail = tail->Next;
-
-        // load custom scripts as new list
-        activeScriptsListHead = nullptr;
-        LoadAllCustomScripts();
-
-        // append custom scripts list to the back
-        if (activeScriptsListHead != nullptr)
-        {
-            tail->Next = activeScriptsListHead;
-            activeScriptsListHead->Previous = tail;
-        }
-
-        activeScriptsListHead = head; // restore original
-}
-
-void CScriptEngine::GameEnd()
-{
-        if (!m_bGameInProgress)
-                return;
-
-        m_bGameInProgress = false;
-
-        RemoveAllCustomScripts();
-        CleoInstance.ModuleSystem.Clear();
-        memset(CleoVariables, 0, sizeof(CleoVariables));
-}
-
 
 
 
@@ -193,33 +142,6 @@ void CScriptEngine::GameEnd()
         return nullptr; // error
     }
 
-    void OnLoadScmData(void)
-    {
-        TRACE("Loading scripts save data...");
-        CTheScripts::Load();
-    }
-
-    void OnSaveScmData(void)
-    {
-        TRACE("Saving scripts save data...");
-        CleoInstance.ScriptEngine.SaveState();
-        CleoInstance.ScriptEngine.UnregisterAllCustomScripts();
-        CTheScripts::Save();
-        CleoInstance.ScriptEngine.ReregisterAllCustomScripts();
-    }
-
-    void __cdecl CScriptEngine::OnDrawScriptText(char beforeFade)
-    {
-        DrawScriptText_Orig(beforeFade);
-
-        // run registered callbacks
-        for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptDraw))
-        {
-            typedef void WINAPI callback(bool);
-            ((callback*)func)(beforeFade != 0);
-        }
-    }
-
     SCRIPT_VAR* CScriptEngine::GetScriptParamPointer(CRunningScript* thread)
     {
         auto type = DT_DWORD; //thread->PeekDataType(); // ignored in GetPointerToScriptVariable anyway
@@ -238,115 +160,6 @@ void CScriptEngine::GameEnd()
     {
         ((::CRunningScript*)script)->StoreParameters(count);
         CleoInstance.OpcodeSystem.handledParamCount += count;
-    }
-
-    void CScriptEngine::DrawScriptText_Orig(char beforeFade)
-    {
-        if (beforeFade)
-            CleoInstance.ScriptEngine.DrawScriptTextBeforeFade_Orig(beforeFade);
-        else
-            CleoInstance.ScriptEngine.DrawScriptTextAfterFade_Orig(beforeFade);
-    }
-
-    void __fastcall CScriptEngine::OnProcessScript(CLEO::CRunningScript* pScript)
-    {
-        CleoInstance.ScriptEngine.GameBegin(); // all initialized and ready to process scripts
-
-        // run registered callbacks
-        bool process = true;
-        for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptProcessBefore))
-        {
-            typedef bool WINAPI callback(CRunningScript*);
-            process = process && ((callback*)func)(pScript);
-        }
-
-        if (process)
-        {
-            CleoInstance.ScriptEngine.ProcessScript_Orig(pScript);
-        }
-
-        // run registered callbacks
-        for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptProcessAfter))
-        {
-            typedef void WINAPI callback(CRunningScript*);
-            ((callback*)func)(pScript);
-        }
-    }
-
-    CCustomScript * CScriptEngine::LoadScript(const char * szFilePath)
-    {
-        auto cs = new CCustomScript(szFilePath);
-
-        if (!cs || !cs->IsOk())
-        {
-            TRACE("Loading of custom script '%s' failed", szFilePath);
-            if (cs) delete cs;
-            return nullptr;
-        }
-
-        // check whether the script is in stop-list
-        if (stopped_info)
-        {
-            for (size_t i = 0; i < safe_header.n_stopped_threads; ++i)
-            {
-                if (stopped_info[i] == cs->m_codeChecksum)
-                {
-                    TRACE("Custom script '%s' found in the stop-list", szFilePath);
-                    InactiveScriptHashes.insert(stopped_info[i]);
-                    delete cs;
-                    return nullptr;
-                }
-            }
-        }
-
-        // check whether the script is in safe-list
-        if (safe_info)
-        {
-            for (size_t i = 0; i < safe_header.n_saved_threads; ++i)
-            {
-                if (safe_info[i].hash == cs->GetCodeChecksum())
-                {
-                    TRACE("Custom script '%s' found in the safe-list", szFilePath);
-                    safe_info[i].Apply(cs);
-                    break;
-                }
-            }
-        }
-
-        AddCustomScript(cs);
-        return cs;
-    }
-
-    CCustomScript* CScriptEngine::CreateCustomScript(CRunningScript* fromThread, const char* script_name, int label)
-    {
-        auto filename = reinterpret_cast<CCustomScript*>(fromThread)->ResolvePath(script_name, DIR_CLEO); // legacy: default search location is game\cleo directory
-
-        if (label != 0) // create from label
-        {
-            TRACE("Starting new custom script from thread named '%s' label 0x%08X", filename.c_str(), label);
-        }
-        else
-        {
-            TRACE("Starting new custom script '%s'", filename.c_str());
-        }
-
-        // if "label == 0" then "script_name" need to be the file name
-        auto cs = new CCustomScript(filename.c_str(), false, fromThread, label);
-        if (fromThread) fromThread->SetConditionResult(cs && cs->IsOk());
-        if (cs && cs->IsOk())
-        {
-            AddCustomScript(cs);
-            if (fromThread) ((::CRunningScript*)fromThread)->ReadParametersForNewlyStartedScript((::CRunningScript*)cs);
-        }
-        else
-        {
-            if (cs) delete cs;
-            if (fromThread) SkipUnusedVarArgs(fromThread);
-            LOG_WARNING(0, "Failed to load script '%s'", filename.c_str());
-            return nullptr;
-        }
-
-        return cs;
     }
 
     CRunningScript* CScriptEngine::FindScriptNamed(const char* threadName, bool standardScripts, bool customScripts, size_t resultIndex)
@@ -494,32 +307,144 @@ void CScriptEngine::GameEnd()
         return false;
     }
 
-void CScriptEngine::LoadMainScriptStuff()
+
+
+
+
+
+
+CCustomScript* CScriptEngine::LoadScript(const char* szFilePath)
 {
-        NativeScriptsDebugMode = GetPrivateProfileInt("General", "DebugMode", 0, Filepath_Config.c_str()) != 0;
+        auto cs = new CCustomScript(szFilePath);
 
-        // global native scripts legacy mode
-        int ver = GetPrivateProfileInt("General", "MainScmLegacyMode", 0, Filepath_Config.c_str());
-        switch(ver) {
-            case 3: NativeScriptsVersion = eCLEO_Version::CLEO_VER_3; break;
-            case 4: NativeScriptsVersion = eCLEO_Version::CLEO_VER_4; break;
-            default: 
-                NativeScriptsVersion = eCLEO_Version::CLEO_VER_CUR;
-                ver = 0;
-            break;
+        if (!cs || !cs->IsOk()) {
+                    TRACE("Loading of custom script '%s' failed", szFilePath);
+                    if (cs)
+                            delete cs;
+                    return nullptr;
         }
-        if (ver != 0)
-                TRACE("Legacy mode for native scripts active: CLEO%d", ver);
 
-        if (!CGame::bMissionPackGame) {
-                MainScriptFileDir = Filepath_Game + "\\data\\script";
-                MainScriptFileName = "main.scm";
+        // check whether the script is in stop-list
+        if (stopped_info) {
+                for (size_t i = 0; i < safe_header.n_stopped_threads; ++i) {
+                        if (stopped_info[i] == cs->m_codeChecksum) {
+                                TRACE("Custom script '%s' found in the stop-list", szFilePath);
+                                InactiveScriptHashes.insert(stopped_info[i]);
+                                delete cs;
+                                return nullptr;
+                        }
+                }
+        }
+
+        // check whether the script is in safe-list
+        if (safe_info) {
+                for (size_t i = 0; i < safe_header.n_saved_threads; ++i) {
+                        if (safe_info[i].hash == cs->GetCodeChecksum()) {
+                                TRACE("Custom script '%s' found in the safe-list", szFilePath);
+                                safe_info[i].Apply(cs);
+                                break;
+                        }
+                }
+        }
+
+        AddCustomScript(cs);
+        return cs;
+}
+
+CCustomScript* CScriptEngine::CreateCustomScript(CRunningScript* fromThread, const char* script_name, int label)
+{
+        auto filename = reinterpret_cast<CCustomScript*>(fromThread)->ResolvePath(script_name, DIR_CLEO); // legacy: default search location is game\cleo directory
+
+        if (label) // create from label
+                TRACE("Starting new custom script from thread named '%s' label 0x%08X", filename.c_str(), label);
+        else
+                TRACE("Starting new custom script '%s'", filename.c_str());
+
+        // if "label == 0" then "script_name" need to be the file name
+        auto cs = new CCustomScript(filename.c_str(), false, fromThread, label);
+        if (fromThread)
+                fromThread->SetConditionResult(cs && cs->IsOk());
+
+        if (cs && cs->IsOk()) {
+                AddCustomScript(cs);
+                if (fromThread)
+                        ((::CRunningScript*)fromThread)->ReadParametersForNewlyStartedScript((::CRunningScript*)cs);
         } else {
-                MainScriptFileDir = Filepath_User + StringPrintf("\\MPACK\\MPACK%d", CGame::bMissionPackGame);
-                MainScriptFileName = "scr.scm";
+                LOG_WARNING(0, "Failed to load script '%s'", filename.c_str());
+                if (cs)
+                        delete cs;
+                if (fromThread)
+                        SkipUnusedVarArgs(fromThread);
+                return nullptr;
         }
 
-        MainScriptCurWorkDir = Filepath_Game;
+        return cs;
+}
+
+void CScriptEngine::AddCustomScript(CCustomScript *cs)
+{
+        if (cs->IsMission()) {
+                    TRACE("Registering custom mission named '%s'", cs->GetName().c_str());
+                    CustomMission = cs;
+        } else {
+                    TRACE("Registering custom script named '%s'", cs->GetName().c_str());
+                    CustomScripts.push_back(cs);
+        }
+
+        cs->AddScriptToList((CRunningScript**)&CTheScripts::pActiveScripts);
+        cs->SetActive(true);
+
+        // run registered callbacks
+        for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptRegister)) {
+            typedef void WINAPI callback(CCustomScript*);
+            ((callback*)func)(cs);
+        }
+}
+
+void CScriptEngine::RemoveScript(CRunningScript* script)
+{
+        if (script->IsMission())
+                CTheScripts::bAlreadyRunningAMissionScript = false;
+
+        if (!script->IsCustom()) {
+                auto cs = (CCustomScript*)script;
+                cs->RemoveScriptFromList((CRunningScript**)&CTheScripts::pActiveScripts);
+                cs->AddScriptToList((CRunningScript**)&CTheScripts::pIdleScripts);
+                cs->ShutdownThisScript();
+        } else
+                RemoveCustomScript((CCustomScript*)script);
+}
+
+void CScriptEngine::RemoveCustomScript(CCustomScript *cs)
+{
+        // run registered callbacks
+        for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptUnregister)) {
+                typedef void WINAPI callback(CCustomScript*);
+                ((callback*)func)(cs);
+        }
+
+        if (cs == CustomMission) {
+                CustomMission = nullptr;
+                CTheScripts::bAlreadyRunningAMissionScript = false; // on_mission
+        }
+
+        if (cs->m_parentScript)
+                cs->BaseIP = 0; // don't delete BaseIP if child thread
+
+        for (auto childThread : cs->m_childScripts)
+                RemoveScript(childThread);
+
+        cs->SetActive(false);
+        cs->RemoveScriptFromList((CRunningScript**)&CTheScripts::pActiveScripts);
+        CustomScripts.remove(cs);
+
+        if (cs->m_saveEnabled && !cs->IsMission()) {
+                    TRACE("Stopping custom script named '%s'", cs->GetName().c_str());
+                    InactiveScriptHashes.insert(cs->GetCodeChecksum());
+        } else {
+                    TRACE("Unregistering custom %s named '%s'", cs->IsMission() ? "mission" : "script", cs->GetName().c_str());
+                    ScriptsWaitingForDelete.push_back(cs);
+        }
 }
 
 // LoadState and SaveState could use some refactoring: templates and structs below are used just for them
@@ -684,77 +609,6 @@ void CScriptEngine::SaveState()
                 TRACE("Saving failed. %s", ex.what());
 }
 
-
-    void CScriptEngine::AddCustomScript(CCustomScript *cs)
-    {
-        if (cs->IsMission())
-        {
-            TRACE("Registering custom mission named '%s'", cs->GetName().c_str());
-            CustomMission = cs;
-        }
-        else
-        {
-            TRACE("Registering custom script named '%s'", cs->GetName().c_str());
-            CustomScripts.push_back(cs);
-        }
-
-        cs->AddScriptToList((CRunningScript**)&CTheScripts::pActiveScripts);
-        cs->SetActive(true);
-
-        // run registered callbacks
-        for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptRegister))
-        {
-            typedef void WINAPI callback(CCustomScript*);
-            ((callback*)func)(cs);
-        }
-    }
-
-void CScriptEngine::RemoveScript(CRunningScript* script)
-{
-        if (script->IsMission())
-                CTheScripts::bAlreadyRunningAMissionScript = false;
-
-        if (!script->IsCustom()) {
-                auto cs = (CCustomScript*)script;
-                cs->RemoveScriptFromList((CRunningScript**)&CTheScripts::pActiveScripts);
-                cs->AddScriptToList((CRunningScript**)&CTheScripts::pIdleScripts);
-                cs->ShutdownThisScript();
-        } else
-                RemoveCustomScript((CCustomScript*)script);
-}
-
-void CScriptEngine::RemoveCustomScript(CCustomScript *cs)
-{
-        // run registered callbacks
-        for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptUnregister)) {
-                typedef void WINAPI callback(CCustomScript*);
-                ((callback*)func)(cs);
-        }
-
-        if (cs == CustomMission) {
-                CustomMission = nullptr;
-                CTheScripts::bAlreadyRunningAMissionScript = false; // on_mission
-        }
-
-        if (cs->m_parentScript)
-                cs->BaseIP = 0; // don't delete BaseIP if child thread
-
-        for (auto childThread : cs->m_childScripts)
-                RemoveScript(childThread);
-
-        cs->SetActive(false);
-        cs->RemoveScriptFromList((CRunningScript**)&CTheScripts::pActiveScripts);
-        CustomScripts.remove(cs);
-
-        if (cs->m_saveEnabled && !cs->IsMission()) {
-            TRACE("Stopping custom script named '%s'", cs->GetName().c_str());
-            InactiveScriptHashes.insert(cs->GetCodeChecksum());
-        } else {
-            TRACE("Unregistering custom %s named '%s'", cs->IsMission() ? "mission" : "script", cs->GetName().c_str());
-            ScriptsWaitingForDelete.push_back(cs);
-        }
-}
-
 void CScriptEngine::LoadAllCustomScripts()
 {
         TRACE(""); // separator
@@ -838,4 +692,133 @@ void CScriptEngine::ReregisterAllCustomScripts()
 void CScriptEngine::ReregisterPersistentScripts()
 {
 
+}
+
+void CScriptEngine::GameBegin()
+{
+        if (m_bGameInProgress) {
+                if (m_bReregisterPersistentScripts)
+                        ReregisterPersistentScripts();
+                
+                return;
+        }
+
+        auto& activeScriptsListHead = (CRunningScript*&)CTheScripts::pActiveScripts; // reference, but with type casted to CLEO's CRunningScript
+        if (activeScriptsListHead == nullptr)
+                return; // main script not loaded yet
+
+        m_bGameInProgress = true;
+
+        NativeScriptsDebugMode = GetPrivateProfileInt("General", "DebugMode", 0, Filepath_Config.c_str()) != 0;
+
+        // global native scripts legacy mode
+        int ver = GetPrivateProfileInt("General", "MainScmLegacyMode", 0, Filepath_Config.c_str());
+        switch(ver) {
+            case 3: NativeScriptsVersion = eCLEO_Version::CLEO_VER_3; break;
+            case 4: NativeScriptsVersion = eCLEO_Version::CLEO_VER_4; break;
+            default: 
+                NativeScriptsVersion = eCLEO_Version::CLEO_VER_CUR;
+                ver = 0;
+            break;
+        }
+        if (ver != 0)
+                TRACE("Legacy mode for native scripts active: CLEO%d", ver);
+
+        if (!CGame::bMissionPackGame) {
+                MainScriptFileDir = Filepath_Game + "\\data\\script";
+                MainScriptFileName = "main.scm";
+        } else {
+                MainScriptFileDir = Filepath_User + StringPrintf("\\MPACK\\MPACK%d", CGame::bMissionPackGame);
+                MainScriptFileName = "scr.scm";
+        }
+
+        MainScriptCurWorkDir = Filepath_Game;
+
+        CleoInstance.ModuleSystem.LoadCleoModules();
+        LoadState(CleoInstance.GetSaveSlot());
+
+        // keep already loaded scripts at front of processing queue
+        auto head = activeScriptsListHead;
+        auto tail = head;
+        while (tail->Next)
+                tail = tail->Next;
+
+        // load custom scripts as new list
+        activeScriptsListHead = nullptr;
+        LoadAllCustomScripts();
+
+        // append custom scripts list to the back
+        if (activeScriptsListHead != nullptr) {
+                tail->Next = activeScriptsListHead;
+                activeScriptsListHead->Previous = tail;
+        }
+
+        activeScriptsListHead = head; // restore original
+}
+
+void CScriptEngine::GameEnd()
+{
+        if (!m_bGameInProgress)
+                return;
+
+        m_bGameInProgress = false;
+
+        RemoveAllCustomScripts();
+        CleoInstance.ModuleSystem.Clear();
+        memset(CleoVariables, 0, sizeof(CleoVariables));
+}
+
+void CScriptEngine::GameRestart()
+{
+
+}
+
+void __fastcall CScriptEngine::OnProcessScript(CLEO::CRunningScript* pScript)
+{
+        GameBegin(); // all initialized and ready to process scripts
+
+        // run registered callbacks
+        bool process = true;
+        for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptProcessBefore)) {
+                typedef bool WINAPI callback(CRunningScript*);
+                process = process && ((callback*)func)(pScript);
+        }
+
+        if (process)
+                ProcessScript_Orig(pScript);
+
+        // run registered callbacks
+        for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptProcessAfter)) {
+                typedef void WINAPI callback(CRunningScript*);
+                ((callback*)func)(pScript);
+        }
+}
+
+void __cdecl CScriptEngine::OnDrawScriptText(char beforeFade)
+{
+        if (beforeFade)
+            CleoInstance.ScriptEngine.DrawScriptTextBeforeFade_Orig(beforeFade);
+        else
+            CleoInstance.ScriptEngine.DrawScriptTextAfterFade_Orig(beforeFade);
+
+        // run registered callbacks
+        for (void* func : CleoInstance.GetCallbacks(eCallbackId::ScriptDraw)) {
+                typedef void WINAPI callback(bool);
+                ((callback*)func)(beforeFade != 0);
+        }
+}
+
+void CScriptEngine::OnLoadScmData()
+{
+        TRACE("Loading scripts save data...");
+        CTheScripts::Load();
+}
+
+void CScriptEngine::OnSaveScmData()
+{
+        TRACE("Saving scripts save data...");
+        SaveState();
+        UnregisterAllCustomScripts();
+        CTheScripts::Save();
+        ReregisterAllCustomScripts();
 }
