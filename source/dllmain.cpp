@@ -59,7 +59,7 @@ class Starter
             WritePrivateProfileString("Internal", "ReportedGameVersion", strValue, Filepath_Config.c_str());
         }
 
-        CleoInstance.Start(InitStage::Initial);
+        CleoInstance.Start(CleoInstance::InitStage::Initial);
     }
 
     ~Starter()
