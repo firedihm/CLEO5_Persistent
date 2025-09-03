@@ -69,16 +69,16 @@ void CCleoInstance::Stop()
 void CCleoInstance::CallCallbacks(eCallbackId id)
 {
         for (void* func : m_callbacks[id]) {
-            typedef void WINAPI callback(void);
-            ((callback*)func)();
+                typedef void WINAPI callback(void);
+                ((callback*)func)();
         }
 }
 
 void CCleoInstance::CallCallbacks(eCallbackId id, DWORD arg)
 {
         for (void* func : m_callbacks[id]) {
-            typedef void WINAPI callback(DWORD);
-            ((callback*)func)(arg);
+                typedef void WINAPI callback(DWORD);
+                ((callback*)func)(arg);
         }
 }
 
@@ -119,7 +119,7 @@ void CCleoInstance::GameRestart()
         m_bGameInProgress = false;
         m_saveSlot = -1;
 
-        TRACE("Ending current game session");
+        TRACE("Restarting current game session");
 
         CallCallbacks(eCallbackId::GameEnd);
         ScriptEngine.GameRestart();
@@ -153,54 +153,46 @@ LRESULT __stdcall CCleoInstance::OnMainWndProc(HWND wnd, UINT msg, WPARAM wparam
         return MainWndProc_Orig(wnd, msg, wparam, lparam);
 }
 
-void CCleoInstance::OnScmInit1()
+void __cdecl CCleoInstance::OnScmInit1()
 {
         ScmInit1_Orig();
         GameBegin();
 }
 
-void CCleoInstance::OnScmInit2() // load save
+void __cdecl CCleoInstance::OnScmInit2() // load save
 {
         ScmInit2_Orig();
         GameBegin();
 }
 
-void CCleoInstance::OnScmInit3()
+void __cdecl CCleoInstance::OnScmInit3()
 {
         ScmInit3_Orig();
         GameBegin();
 }
 
-void __declspec(naked) CCleoInstance::OnGameShutdown()
+void __cdecl CCleoInstance::OnGameShutdown()
 {
         GameEnd();
-        static DWORD oriFunc;
-        oriFunc = (DWORD)(GameShutdown_Orig);
-        _asm jmp oriFunc
+        GameShutdown_Orig();
 }
 
-void __declspec(naked) CCleoInstance::OnGameRestart1()
+void __cdecl CCleoInstance::OnGameRestart1()
 {
         GameRestart();
-        static DWORD oriFunc;
-        oriFunc = (DWORD)(GameRestart1_Orig);
-        _asm jmp oriFunc
+        GameRestart1_Orig();
 }
 
-void __declspec(naked) CCleoInstance::OnGameRestart2()
+void __cdecl CCleoInstance::OnGameRestart2()
 {
         GameRestart();
-        static DWORD oriFunc;
-        oriFunc = (DWORD)(GameRestart2_Orig);
-        _asm jmp oriFunc
+        GameRestart2_Orig();
 }
 
-void __declspec(naked) CCleoInstance::OnGameRestart3()
+void __cdecl CCleoInstance::OnGameRestart3()
 {
         GameRestart();
-        static DWORD oriFunc;
-        oriFunc = (DWORD)(GameRestart3_Orig);
-        _asm jmp oriFunc
+        GameRestart3_Orig();
 }
 
 void __cdecl CCleoInstance::OnDebugDisplayTextBuffer_Idle()
