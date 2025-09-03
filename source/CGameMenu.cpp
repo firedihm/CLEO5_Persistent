@@ -13,7 +13,7 @@ namespace CLEO
 
     void __fastcall CGameMenu::HOOK_DrawMenuBackground(CSprite2d* texture, int dummy, CRect* rect, RwRGBA *color)
     {
-        CleoInstance.Start(InitStage::OnDraw); // late initialization
+        CleoInstance.Start(CleoInstance::InitStage::OnDraw); // late initialization
 
         CleoInstance.GameMenu.DrawMenuBackground_Orig(texture, dummy, rect, color);
 
